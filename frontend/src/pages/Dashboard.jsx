@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import api from '../api/axios'
 
 function Dashboard() {
   const [transactions, setTransactions] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const navigate = useNavigate()
 
   useEffect(() => {
     async function fetchTransactions() {
@@ -21,12 +23,20 @@ function Dashboard() {
     fetchTransactions()
   }, [])
 
+  function handleLogout() {
+    localStorage.removeItem('token')
+    navigate('/login')
+  }
+
   if (loading) return <p>Loading...</p>
   if (error) return <p style={{ color: 'red' }}>{error}</p>
 
   return (
     <div>
-      <h1>Dashboard</h1>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h1>Dashboard</h1>
+        <button onClick={handleLogout}>Log Out</button>
+      </div>
       <h2>Your Transactions</h2>
       {transactions.length === 0 ? (
         <p>No transactions yet.</p>
