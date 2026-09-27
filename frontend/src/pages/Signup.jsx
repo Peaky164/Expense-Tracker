@@ -1,67 +1,148 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import api from '../api/axios'
+import { useTheme } from '../context/ThemeContext'
+import { getErrorMessage } from '../api/errorMessage'
 
 function Signup() {
+  const { colors } = useTheme()
   const [email, setEmail] = useState('')
   const [name, setName] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const navigate = useNavigate()
 
+  const inputStyle = {
+    width: '100%',
+    padding: '10px 12px',
+    background: colors.bg,
+    border: `1px solid ${colors.border}`,
+    borderRadius: '6px',
+    color: colors.text,
+    fontSize: '14px',
+    outline: 'none',
+    boxSizing: 'border-box',
+  }
+
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
 
     try {
-      await api.post('/auth/signup', { name, email, password }) 
+      await api.post('/auth/signup', { name, email, password })
       navigate('/login')
     } catch (err) {
-      if (err.response && err.response.status === 400) {
-        setError('An account with this email already exists')
-      } else {
-        setError('Something went wrong. Please try again')
-      }
+      setError(getErrorMessage(err, 'Something went wrong. Please try again'))
     }
   }
 
   return (
-    <div>
-      <h1>Sign Up</h1>
-      <form onSubmit={handleSubmit}>
-        <div>
-  <label>Name</label>
-  <input
-    type="text"
-    value={name}
-    onChange={(e) => setName(e.target.value)}
-    required
-  />
-</div>
-        <div>
-          <label>Email</label>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
+    <div
+      style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: colors.bg,
+        fontFamily: 'ui-sans-serif, system-ui, -apple-system, sans-serif',
+        padding: '24px',
+      }}
+    >
+      <div
+        style={{
+          width: '100%',
+          maxWidth: '380px',
+          background: colors.surface,
+          border: `1px solid ${colors.border}`,
+          borderRadius: '12px',
+          padding: '32px',
+        }}
+      >
+        <div
+          style={{
+            fontSize: '22px',
+            fontWeight: 700,
+            marginBottom: '24px',
+            textAlign: 'center',
+            backgroundImage: `linear-gradient(90deg, ${colors.accentPurple}, ${colors.accentBlue})`,
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+          }}
+        >
+          Expense Tracker
         </div>
-        <div>
-          <label>Password</label>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-        </div>
-        {error && <p style={{ color: 'red' }}>{error}</p>}
-        <button type="submit">Sign Up</button>
-      </form>
-      <p>
-        Already have an account? <Link to="/login">Log In</Link>
-      </p>
+
+        <h1 style={{ fontSize: '20px', fontWeight: 600, color: colors.text, marginBottom: '20px' }}>
+          Sign Up
+        </h1>
+
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <div>
+            <label style={{ fontSize: '13px', color: colors.textMuted, display: 'block', marginBottom: '6px' }}>
+              Name
+            </label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+              style={inputStyle}
+            />
+          </div>
+          <div>
+            <label style={{ fontSize: '13px', color: colors.textMuted, display: 'block', marginBottom: '6px' }}>
+              Email
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              style={inputStyle}
+            />
+          </div>
+          <div>
+            <label style={{ fontSize: '13px', color: colors.textMuted, display: 'block', marginBottom: '6px' }}>
+              Password
+            </label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              style={inputStyle}
+            />
+          </div>
+
+          {error && (
+            <p style={{ color: colors.danger, fontSize: '13px', margin: 0 }}>{error}</p>
+          )}
+
+          <button
+            type="submit"
+            style={{
+              padding: '10px 18px',
+              background: `linear-gradient(90deg, ${colors.accentPurple}, ${colors.accentBlue})`,
+              color: '#fff',
+              border: 'none',
+              borderRadius: '6px',
+              fontSize: '14px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              marginTop: '4px',
+            }}
+          >
+            Sign Up
+          </button>
+        </form>
+
+        <p style={{ fontSize: '13px', color: colors.textMuted, textAlign: 'center', marginTop: '20px' }}>
+          Already have an account?{' '}
+          <Link to="/login" style={{ color: colors.accentBlue, textDecoration: 'none' }}>
+            Log In
+          </Link>
+        </p>
+      </div>
     </div>
   )
 }

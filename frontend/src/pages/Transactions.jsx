@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api/axios'
 import { useTheme } from '../context/ThemeContext'
+import { getErrorMessage } from '../api/errorMessage'
 
 function Transactions() {
   const { colors } = useTheme()
@@ -124,7 +125,7 @@ function Transactions() {
       setPaymentMode('')
       fetchData()
     } catch (err) {
-      setFormError('Failed to add transaction')
+      setFormError(getErrorMessage(err, 'Failed to add transaction'))
     }
   }
 
@@ -133,7 +134,7 @@ function Transactions() {
       await api.delete(`/transactions/${id}`)
       fetchData()
     } catch (err) {
-      setError('Failed to delete transaction')
+      setError(getErrorMessage(err, 'Failed to delete transaction'))
     }
   }
 

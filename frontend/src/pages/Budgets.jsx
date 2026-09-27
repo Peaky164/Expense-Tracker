@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import api from '../api/axios'
 import { useTheme } from '../context/ThemeContext'
+import { getErrorMessage } from '../api/errorMessage'
 
 function currentMonth() {
   return new Date().toISOString().slice(0, 7)
@@ -113,7 +114,7 @@ function Budgets() {
       setLimitAmount('')
       fetchData()
     } catch (err) {
-      setFormError(err.response?.data?.detail || 'Failed to add budget')
+      setFormError(getErrorMessage(err, 'Failed to add budget'))
     }
   }
 
@@ -122,7 +123,7 @@ function Budgets() {
       await api.delete(`/budgets/${id}`)
       fetchData()
     } catch (err) {
-      setError('Failed to delete budget')
+      setError(getErrorMessage(err, 'Failed to delete budget'))
     }
   }
 

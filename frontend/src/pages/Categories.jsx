@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api/axios'
 import { useTheme } from '../context/ThemeContext'
+import { getErrorMessage } from '../api/errorMessage'
 
 function Categories() {
   const { colors } = useTheme()
@@ -75,7 +76,7 @@ function Categories() {
       setType('expense')
       fetchCategories()
     } catch (err) {
-      setFormError('Failed to add category')
+      setFormError(getErrorMessage(err, 'Failed to add category'))
     }
   }
 
@@ -84,7 +85,7 @@ function Categories() {
       await api.delete(`/categories/${id}`)
       fetchCategories()
     } catch (err) {
-      setError('Failed to delete category')
+      setError(getErrorMessage(err, 'Failed to delete category'))
     }
   }
 
