@@ -10,54 +10,58 @@ import Dashboard from './pages/Dashboard'
 import ProtectedRoute from './components/ProtectedRoute'
 
 function App() {
+  const isLoggedIn = Boolean(localStorage.getItem('token'))
+
   return (
-        <ThemeProvider>
-    <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route path="/signup" element={<Signup />} />
-      <Route
-        path="/dashboard"
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <Dashboard />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/categories"
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <Categories />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/transactions"
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <Transactions />
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-  path="/budgets"
-  element={
-    <ProtectedRoute>
-      <Layout>
-        <Budgets />
-      </Layout>
-    </ProtectedRoute>
-  }
-/>
-      <Route path="/" element={<Navigate to="/login" />} />
-        </Routes>
+    <ThemeProvider>
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/signup" element={<Signup />} />
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <Dashboard />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/categories"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <Categories />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/transactions"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <Transactions />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/budgets"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <Budgets />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route path="/" element={<Navigate to={isLoggedIn ? '/dashboard' : '/login'} />} />
+        <Route path="*" element={<Navigate to={isLoggedIn ? '/dashboard' : '/login'} />} />
+      </Routes>
     </ThemeProvider>
   )
 }
+
 export default App
