@@ -2,8 +2,9 @@ import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import api from '../api/axios'
 
-function Login() {
+function Signup() {
   const [email, setEmail] = useState('')
+  const [name, setName] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const navigate = useNavigate()
@@ -13,18 +14,30 @@ function Login() {
     setError('')
 
     try {
-      const response = await api.post('/auth/login', { email, password })
-      localStorage.setItem('token', response.data.access_token)
-      navigate('/dashboard')
+      await api.post('/auth/signup', { name, email, password }) 
+      navigate('/login')
     } catch (err) {
-      setError('Invalid email or password')
+      if (err.response && err.response.status === 400) {
+        setError('An account with this email already exists')
+      } else {
+        setError('Something went wrong. Please try again')
+      }
     }
   }
 
   return (
     <div>
-      <h1>Login</h1>
+      <h1>Sign Up</h1>
       <form onSubmit={handleSubmit}>
+        <div>
+  <label>Name</label>
+  <input
+    type="text"
+    value={name}
+    onChange={(e) => setName(e.target.value)}
+    required
+  />
+</div>
         <div>
           <label>Email</label>
           <input
@@ -44,13 +57,13 @@ function Login() {
           />
         </div>
         {error && <p style={{ color: 'red' }}>{error}</p>}
-        <button type="submit">Log In</button>
+        <button type="submit">Sign Up</button>
       </form>
-            <p>
-        Don't have an account? <Link to="/signup">Sign Up</Link>
+      <p>
+        Already have an account? <Link to="/login">Log In</Link>
       </p>
     </div>
   )
 }
 
-export default Login
+export default Signup
