@@ -1,1 +1,14 @@
-{"expo":{"name":"ExpenseTracker","slug":"expense-tracker-mobile","version":"1.0.0","orientation":"portrait","android":{"package":"com.sujal.expensetracker"}}}
+{
+  "expo": {
+    "name": "ExpenseTracker",
+    "slug": "expense-tracker-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "android": {
+      "package": "com.sujal.expensetracker"
+    },
+    "plugins": [
+      "expo-secure-store"
+    ]
+  }
+}
