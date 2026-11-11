@@ -1,3 +1,4 @@
+import BudgetsScreen from "../screens/BudgetsScreen";
 import TransactionsScreen from "../screens/TransactionsScreen";
 import { View, Text, TouchableOpacity } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -26,7 +27,7 @@ export default function MainTabs({ user, onLogout }) {
       </Tab.Screen>
       <Tab.Screen name="Transactions" component={TransactionsScreen} />
       <Tab.Screen name="Categories" component={CategoriesScreen} />
-      <Tab.Screen name="Budgets">{() => <Placeholder title="Budgets" />}</Tab.Screen>
+      <Tab.Screen name="Budgets" component={BudgetsScreen} />
     </Tab.Navigator>
   );
 }
