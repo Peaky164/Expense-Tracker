@@ -5,3 +5,5 @@ __pycache__/
 *.pyc
 node_modules/
 .expo/
+.pytest_cache/
+__pycache__/
