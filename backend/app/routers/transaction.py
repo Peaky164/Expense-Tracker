@@ -7,7 +7,7 @@ from app.core.security import get_current_user
 from app.models.user import User
 from app.models.transaction import Transaction
 from app.models.category import Category
-from app.schemas.transaction import TransactionCreate, TransactionOut
+from app.schemas.transaction import TransactionCreate, TransactionOut, TransactionUpdate
 
 router = APIRouter(prefix="/transactions", tags=["Transactions"])
 
@@ -64,3 +64,41 @@ def delete_transaction(
     db.delete(transaction)
     db.commit()
     return {"detail": "Transaction deleted successfully"}
+@router.put("/{transaction_id}", response_model=TransactionOut)
+def update_transaction(
+    transaction_id: int,
+    transaction_update: TransactionUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    transaction = db.query(Transaction).filter(
+        Transaction.id == transaction_id,
+        Transaction.owner_id == current_user.id,
+    ).first()
+
+    if not transaction:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+
+    data = transaction_update.model_dump(exclude_unset=True)
+
+    # amount and category_id cannot be null; ignore explicit nulls
+    for required_field in ("amount", "category_id"):
+        if required_field in data and data[required_field] is None:
+            del data[required_field]
+
+    if "category_id" in data:
+        category = db.query(Category).filter(
+            Category.id == data["category_id"],
+            Category.owner_id == current_user.id,
+        ).first()
+        if not category:
+            raise HTTPException(status_code=404, detail="Category not found")
+
+    for field, value in data.items():
+        setattr(transaction, field, value)
+
+    db.commit()
+    db.refresh(transaction)
+    return transaction
+
+

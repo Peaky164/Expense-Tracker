@@ -1,5 +1,5 @@
 from pydantic import BaseModel, field_validator
-from typing import Literal
+from typing import Literal, Optional
 
 
 class CategoryCreate(BaseModel):
@@ -13,6 +13,21 @@ class CategoryCreate(BaseModel):
         if not v:
             raise ValueError("Category name cannot be blank")
         return v
+class CategoryUpdate(BaseModel):
+    name: Optional[str] = None
+    type: Optional[Literal["income", "expense"]] = None
+
+    @field_validator("name")
+    @classmethod
+    def name_not_blank(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        v = v.strip()
+        if not v:
+            raise ValueError("Category name cannot be blank")
+        return v
+
+    
 
 
 class CategoryOut(BaseModel):
