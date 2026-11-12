@@ -11,19 +11,12 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
-import { getTransactions } from "../api/transactions";
-import { getCategories } from "../api/categories";
+import { getSummary } from "../api/dashboard";
 
 function errorText(err) {
   const detail = err?.response?.data?.detail;
   if (typeof detail === "string") return detail;
   return "Something went wrong. Check your connection and try again.";
-}
-
-function parseDate(value) {
-  // Backend may return a datetime without timezone; treat it as UTC
-  const iso = /[zZ]|[+-]\d\d:?\d\d$/.test(value) ? value : value + "Z";
-  return new Date(iso);
 }
 
 function monthKey(date) {
@@ -46,17 +39,15 @@ function monthLabel(key) {
 const money = (n) => `₹${Number(n).toFixed(2)}`;
 
 export default function DashboardScreen({ user, onLogout }) {
-  const [transactions, setTransactions] = useState([]);
-  const [categories, setCategories] = useState([]);
+  const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [month, setMonth] = useState(monthKey(new Date()));
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (m) => {
     try {
-      const [t, c] = await Promise.all([getTransactions(), getCategories()]);
-      setTransactions(t);
-      setCategories(c);
+      const data = await getSummary(m);
+      setSummary(data);
     } catch (err) {
       Alert.alert("Could not load data", errorText(err));
     } finally {
@@ -65,36 +56,18 @@ export default function DashboardScreen({ user, onLogout }) {
     }
   }, []);
 
+  // Reload when the tab is focused or the month changes
   useFocusEffect(
     useCallback(() => {
-      load();
-    }, [load])
+      load(month);
+    }, [load, month])
   );
 
-  // ---- calculations for the selected month ----
-  let income = 0;
-  let expense = 0;
-  const byCategory = {};
-  let count = 0;
-
-  for (const t of transactions) {
-    if (monthKey(parseDate(t.date)) !== month) continue;
-    const cat = categories.find((c) => c.id === t.category_id);
-    const amt = Number(t.amount);
-    count += 1;
-    if (cat?.type === "income") {
-      income += amt;
-    } else {
-      expense += amt;
-      const name = cat?.name || "Unknown";
-      byCategory[name] = (byCategory[name] || 0) + amt;
-    }
-  }
-
-  const balance = income - expense;
-  const breakdown = Object.entries(byCategory)
-    .map(([name, total]) => ({ name, total }))
-    .sort((a, b) => b.total - a.total);
+  const income = summary?.total_income ?? 0;
+  const expense = summary?.total_expense ?? 0;
+  const balance = summary?.balance ?? 0;
+  const count = summary?.transaction_count ?? 0;
+  const breakdown = summary?.by_category ?? [];
 
   if (loading) {
     return (
@@ -116,7 +89,7 @@ export default function DashboardScreen({ user, onLogout }) {
             refreshing={refreshing}
             onRefresh={() => {
               setRefreshing(true);
-              load();
+              load(month);
             }}
           />
         }
@@ -172,7 +145,7 @@ export default function DashboardScreen({ user, onLogout }) {
           breakdown.map((item) => {
             const pct = expense > 0 ? (item.total / expense) * 100 : 0;
             return (
-              <View key={item.name} style={styles.catRow}>
+              <View key={item.category_id} style={styles.catRow}>
                 <View style={styles.catTop}>
                   <Text style={styles.catName}>{item.name}</Text>
                   <Text style={styles.catAmount}>
