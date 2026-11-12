@@ -4,7 +4,12 @@ import {
   StyleSheet, Alert, ActivityIndicator,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { getCategories, createCategory, deleteCategory } from '../api/categories';
+import {
+  getCategories,
+  createCategory,
+  deleteCategory,
+  updateCategory,
+} from '../api/categories';
 
 export default function CategoriesScreen() {
   const [items, setItems] = useState([]);
@@ -12,6 +17,7 @@ export default function CategoriesScreen() {
   const [name, setName] = useState('');
   const [type, setType] = useState('expense');
   const [error, setError] = useState('');
+  const [editingId, setEditingId] = useState(null);
 
   const load = async () => {
     try {
@@ -26,16 +32,34 @@ export default function CategoriesScreen() {
   // Reload every time this tab is opened
   useFocusEffect(useCallback(() => { load(); }, []));
 
-  const add = async () => {
+  const save = async () => {
     if (!name.trim()) return;
     setError('');
     try {
-      await createCategory(name.trim(), type);
+      if (editingId) {
+        await updateCategory(editingId, name.trim());
+      } else {
+        await createCategory(name.trim(), type);
+      }
       setName('');
+      setEditingId(null);
       await load();
     } catch (e) {
-      setError(e.response?.data?.detail?.toString() || 'Could not add category.');
+      setError(e.response?.data?.detail?.toString() || 'Could not save category.');
     }
+  };
+
+  const startEdit = (item) => {
+    setEditingId(item.id);
+    setName(item.name);
+    setType(item.type);
+    setError('');
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setName('');
+    setError('');
   };
 
   const confirmDelete = (item) => {
@@ -47,6 +71,7 @@ export default function CategoriesScreen() {
         onPress: async () => {
           try {
             await deleteCategory(item.id);
+            if (editingId === item.id) cancelEdit();
             await load();
           } catch (e) {
             setError(e.response?.data?.detail?.toString() || 'Could not delete category.');
@@ -71,15 +96,20 @@ export default function CategoriesScreen() {
           <TouchableOpacity
             key={t}
             style={[styles.chip, type === t && styles.chipActive]}
-            onPress={() => setType(t)}
+            onPress={() => !editingId && setType(t)}
           >
             <Text style={type === t ? styles.chipTextActive : styles.chipText}>{t}</Text>
           </TouchableOpacity>
         ))}
-        <TouchableOpacity style={styles.addBtn} onPress={add}>
-          <Text style={styles.addText}>Add</Text>
+        <TouchableOpacity style={styles.addBtn} onPress={save}>
+          <Text style={styles.addText}>{editingId ? 'Save' : 'Add'}</Text>
         </TouchableOpacity>
       </View>
+      {editingId ? (
+        <TouchableOpacity onPress={cancelEdit}>
+          <Text style={styles.cancelEdit}>Cancel editing</Text>
+        </TouchableOpacity>
+      ) : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       <FlatList
@@ -88,10 +118,10 @@ export default function CategoriesScreen() {
         ListEmptyComponent={<Text style={styles.empty}>No categories yet.</Text>}
         renderItem={({ item }) => (
           <View style={styles.item}>
-            <View>
+            <TouchableOpacity style={{ flex: 1 }} onPress={() => startEdit(item)}>
               <Text style={styles.itemName}>{item.name}</Text>
               <Text style={styles.itemType}>{item.type}</Text>
-            </View>
+            </TouchableOpacity>
             <TouchableOpacity onPress={() => confirmDelete(item)}>
               <Text style={styles.delete}>Delete</Text>
             </TouchableOpacity>
@@ -118,4 +148,5 @@ const styles = StyleSheet.create({
   itemName: { fontSize: 16 },
   itemType: { color: '#888', fontSize: 13 },
   delete: { color: '#dc2626', fontSize: 15 },
+  cancelEdit: { color: '#4f46e5', marginBottom: 8 },
 });

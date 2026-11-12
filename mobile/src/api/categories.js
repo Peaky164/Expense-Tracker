@@ -13,3 +13,7 @@ export async function createCategory(name, type) {
 export async function deleteCategory(id) {
   await client.delete(`/categories/${id}`);
 }
+export async function updateCategory(id, name) {
+  const { data } = await client.put(`/categories/${id}`, { name });
+  return data;
+}

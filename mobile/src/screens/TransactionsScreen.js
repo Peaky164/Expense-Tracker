@@ -19,6 +19,7 @@ import {
   getTransactions,
   createTransaction,
   deleteTransaction,
+  updateTransaction,
 } from "../api/transactions";
 import { getCategories } from "../api/categories";
 
@@ -52,6 +53,7 @@ export default function TransactionsScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   const [modalVisible, setModalVisible] = useState(false);
+  const [editing, setEditing] = useState(null); // transaction being edited, or null
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
   const [paymentMode, setPaymentMode] = useState("Cash");
@@ -85,11 +87,21 @@ export default function TransactionsScreen() {
 
   const categoryById = (id) => categories.find((c) => c.id === id);
 
-  const openModal = () => {
+  const openAdd = () => {
+    setEditing(null);
     setAmount("");
     setDescription("");
     setPaymentMode("Cash");
     setCategoryId(null);
+    setModalVisible(true);
+  };
+
+  const openEdit = (item) => {
+    setEditing(item);
+    setAmount(String(item.amount));
+    setDescription(item.description || "");
+    setPaymentMode(item.payment_mode || "Cash");
+    setCategoryId(item.category_id);
     setModalVisible(true);
   };
 
@@ -105,12 +117,17 @@ export default function TransactionsScreen() {
     }
     setSaving(true);
     try {
-      await createTransaction({
+      const payload = {
         amount: value,
         description: description.trim() || null,
         payment_mode: paymentMode,
         category_id: categoryId,
-      });
+      };
+      if (editing) {
+        await updateTransaction(editing.id, payload);
+      } else {
+        await createTransaction(payload);
+      }
       setModalVisible(false);
       await load();
     } catch (err) {
@@ -144,6 +161,7 @@ export default function TransactionsScreen() {
     return (
       <TouchableOpacity
         style={styles.row}
+        onPress={() => openEdit(item)}
         onLongPress={() => confirmDelete(item)}
         activeOpacity={0.7}
       >
@@ -176,7 +194,9 @@ export default function TransactionsScreen() {
     return (
       <SafeAreaView style={styles.center}>
         <ActivityIndicator size="large" />
-        <Text style={styles.hint}>Loading… the server may take a minute to wake up.</Text>
+        <Text style={styles.hint}>
+          Loading… the server may take a minute to wake up.
+        </Text>
       </SafeAreaView>
     );
   }
@@ -185,7 +205,7 @@ export default function TransactionsScreen() {
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
         <Text style={styles.title}>Transactions</Text>
-        <TouchableOpacity style={styles.addBtn} onPress={openModal}>
+        <TouchableOpacity style={styles.addBtn} onPress={openAdd}>
           <Text style={styles.addBtnText}>+ Add</Text>
         </TouchableOpacity>
       </View>
@@ -221,7 +241,9 @@ export default function TransactionsScreen() {
               contentContainerStyle={styles.form}
               keyboardShouldPersistTaps="handled"
             >
-              <Text style={styles.title}>New transaction</Text>
+              <Text style={styles.title}>
+                {editing ? "Edit transaction" : "New transaction"}
+              </Text>
 
               <Text style={styles.label}>Amount (₹)</Text>
               <TextInput
