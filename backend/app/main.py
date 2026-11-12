@@ -8,7 +8,7 @@ from app.models import user as user_model
 from app.models import category as category_model
 from app.models import transaction as transaction_model
 from app.models import budget as budget_model
-from app.routers import auth, category, transaction, budget
+from app.routers import auth, category, transaction, budget, dashboard
 
 Base.metadata.create_all(bind=engine)
 
@@ -33,6 +33,7 @@ app.include_router(auth.router)
 app.include_router(category.router)
 app.include_router(transaction.router)
 app.include_router(budget.router)
+app.include_router(dashboard.router)
 
 
 @app.get("/")
