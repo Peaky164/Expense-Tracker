@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List
 
@@ -41,10 +41,19 @@ def create_transaction(
 
 @router.get("/", response_model=List[TransactionOut])
 def get_transactions(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=100),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return db.query(Transaction).filter(Transaction.owner_id == current_user.id).all()
+    return (
+        db.query(Transaction)
+        .filter(Transaction.owner_id == current_user.id)
+        .order_by(Transaction.date.desc(), Transaction.id.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
 
 
 @router.delete("/{transaction_id}")

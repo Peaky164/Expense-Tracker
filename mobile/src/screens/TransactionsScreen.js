@@ -24,6 +24,7 @@ import {
 import { getCategories } from "../api/categories";
 
 const PAYMENT_MODES = ["Cash", "UPI", "Card", "Other"];
+const PAGE_SIZE = 20;
 
 function errorText(err) {
   const detail = err?.response?.data?.detail;
@@ -51,6 +52,8 @@ export default function TransactionsScreen() {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
 
   const [modalVisible, setModalVisible] = useState(false);
   const [editing, setEditing] = useState(null); // transaction being edited, or null
@@ -60,16 +63,16 @@ export default function TransactionsScreen() {
   const [categoryId, setCategoryId] = useState(null);
   const [saving, setSaving] = useState(false);
 
+  // Loads page 1 (server returns newest first)
   const load = useCallback(async () => {
     try {
       const [txs, cats] = await Promise.all([
-        getTransactions(),
+        getTransactions(0, PAGE_SIZE),
         getCategories(),
       ]);
-      // newest first
-      txs.sort((a, b) => new Date(b.date) - new Date(a.date));
       setTransactions(txs);
       setCategories(cats);
+      setHasMore(txs.length === PAGE_SIZE);
     } catch (err) {
       Alert.alert("Could not load data", errorText(err));
     } finally {
@@ -77,6 +80,20 @@ export default function TransactionsScreen() {
       setRefreshing(false);
     }
   }, []);
+
+  const loadMore = async () => {
+    if (loadingMore || !hasMore || loading) return;
+    setLoadingMore(true);
+    try {
+      const next = await getTransactions(transactions.length, PAGE_SIZE);
+      setTransactions((prev) => [...prev, ...next]);
+      setHasMore(next.length === PAGE_SIZE);
+    } catch (err) {
+      Alert.alert("Could not load more", errorText(err));
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   // Reload every time the tab is focused (so new categories show up)
   useFocusEffect(
@@ -214,6 +231,11 @@ export default function TransactionsScreen() {
         data={transactions}
         keyExtractor={(item) => String(item.id)}
         renderItem={renderItem}
+        onEndReached={loadMore}
+        onEndReachedThreshold={0.4}
+        ListFooterComponent={
+          loadingMore ? <ActivityIndicator style={{ margin: 16 }} /> : null
+        }
         refreshing={refreshing}
         onRefresh={() => {
           setRefreshing(true);

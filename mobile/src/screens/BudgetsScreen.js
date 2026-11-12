@@ -20,7 +20,7 @@ import {
   deleteBudget,
 } from "../api/budgets";
 import { getCategories } from "../api/categories";
-import { getTransactions } from "../api/transactions";
+import { getAllTransactions } from "../api/transactions";
 
 function errorText(err) {
   const detail = err?.response?.data?.detail;
