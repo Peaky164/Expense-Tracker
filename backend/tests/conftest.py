@@ -58,3 +58,11 @@ def auth(client):
 @pytest.fixture()
 def other_auth(client):
     return make_headers(client, email="user2@example.com")
+
+
+@pytest.fixture()
+def db_session(client):
+    """Direct database access for tests that need custom data (e.g. old dates)."""
+    db = TestingSession()
+    yield db
+    db.close()
