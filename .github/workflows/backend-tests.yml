@@ -26,3 +26,17 @@ jobs:
 
       - name: Run tests
         run: pytest -v
+
+  docker-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t expense-tracker-api .
+
+      - name: Smoke test the image
+        run: docker run --rm expense-tracker-api python -c "import fastapi, sqlalchemy, psycopg, passlib, jose; print('imports ok')"
