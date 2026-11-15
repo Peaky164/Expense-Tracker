@@ -11,6 +11,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.core.database import Base, get_db
+from app.core.limiter import limiter
 from app.main import app
 
 test_engine = create_engine(
@@ -34,9 +35,13 @@ def client():
             db.close()
 
     app.dependency_overrides[get_db] = override_get_db
+    limiter.enabled = False  # rate limits are tested separately in test_rate_limit.py
+    limiter.reset()
     with TestClient(app) as c:
         yield c
     app.dependency_overrides.clear()
+    limiter.enabled = False
+    limiter.reset()
     Base.metadata.drop_all(bind=test_engine)
 
 

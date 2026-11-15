@@ -2,8 +2,11 @@ import os
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 from app.core.database import Base, engine
+from app.core.limiter import limiter
 from app.models import user as user_model
 from app.models import category as category_model
 from app.models import transaction as transaction_model
@@ -13,6 +16,8 @@ from app.routers import auth, category, transaction, budget, dashboard
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Expense Tracker API")
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Comma-separated list of allowed origins, e.g.
 # "http://localhost:5173,https://your-app.vercel.app"
