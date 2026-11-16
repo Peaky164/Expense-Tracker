@@ -13,8 +13,6 @@ from app.models import transaction as transaction_model
 from app.models import budget as budget_model
 from app.routers import auth, category, transaction, budget, dashboard
 
-Base.metadata.create_all(bind=engine)
-
 app = FastAPI(title="Expense Tracker API")
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
