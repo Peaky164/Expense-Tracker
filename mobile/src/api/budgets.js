@@ -6,6 +6,12 @@ export async function getBudgets() {
   return res.data;
 }
 
+// Per-budget spent/remaining/percent for one month ("YYYY-MM"), computed by the server
+export async function getBudgetProgress(month) {
+  const res = await client.get("/budgets/progress", { params: { month } });
+  return res.data;
+}
+
 export async function createBudget({ limit_amount, month, category_id }) {
   const res = await client.post("/budgets/", {
     limit_amount: Number(limit_amount),

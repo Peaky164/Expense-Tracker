@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -14,13 +14,12 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
 import {
-  getBudgets,
+  getBudgetProgress,
   createBudget,
   updateBudget,
   deleteBudget,
 } from "../api/budgets";
 import { getCategories } from "../api/categories";
-import { getAllTransactions } from "../api/transactions";
 
 function errorText(err) {
   const detail = err?.response?.data?.detail;
@@ -29,12 +28,6 @@ function errorText(err) {
     return detail.map((d) => d.msg).join("\n");
   }
   return "Something went wrong. Check your connection and try again.";
-}
-
-function parseDate(value) {
-  // Backend may return a datetime without timezone; treat it as UTC
-  const iso = /[zZ]|[+-]\d\d:?\d\d$/.test(value) ? value : value + "Z";
-  return new Date(iso);
 }
 
 function monthKey(date) {
@@ -55,55 +48,50 @@ function monthLabel(key) {
 }
 
 export default function BudgetsScreen() {
-  const [budgets, setBudgets] = useState([]);
+  const [progress, setProgress] = useState([]); // one item per budget in the selected month
   const [categories, setCategories] = useState([]);
-  const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [month, setMonth] = useState(monthKey(new Date()));
 
   const [modalVisible, setModalVisible] = useState(false);
-  const [editing, setEditing] = useState(null); // budget being edited, or null
+  const [editing, setEditing] = useState(null); // progress item being edited, or null
   const [limit, setLimit] = useState("");
   const [categoryId, setCategoryId] = useState(null);
   const [saving, setSaving] = useState(false);
 
+  // Ignore responses that arrive after a newer request was started
+  const requestId = useRef(0);
+
   const load = useCallback(async () => {
+    const id = ++requestId.current;
     try {
-      const [b, c, t] = await Promise.all([
-        getBudgets(),
+      const [p, c] = await Promise.all([
+        getBudgetProgress(month),
         getCategories(),
-        getTransactions(),
       ]);
-      setBudgets(b);
+      if (id !== requestId.current) return;
+      setProgress(p);
       setCategories(c);
-      setTransactions(t);
     } catch (err) {
+      if (id !== requestId.current) return;
       Alert.alert("Could not load data", errorText(err));
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (id === requestId.current) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
-  }, []);
+  }, [month]);
 
+  // Runs on focus, and again whenever the selected month changes
   useFocusEffect(
     useCallback(() => {
       load();
     }, [load])
   );
 
-  const categoryById = (id) => categories.find((c) => c.id === id);
-
-  // spent per category in the selected month
-  const spentByCategory = {};
-  for (const t of transactions) {
-    if (monthKey(parseDate(t.date)) !== month) continue;
-    spentByCategory[t.category_id] =
-      (spentByCategory[t.category_id] || 0) + Number(t.amount);
-  }
-
-  const monthBudgets = budgets.filter((b) => b.month === month);
-  const usedCategoryIds = monthBudgets.map((b) => b.category_id);
+  const usedCategoryIds = progress.map((b) => b.category_id);
   const availableCategories = categories.filter(
     (c) => c.type === "expense" && !usedCategoryIds.includes(c.id)
   );
@@ -115,10 +103,10 @@ export default function BudgetsScreen() {
     setModalVisible(true);
   };
 
-  const openEdit = (budget) => {
-    setEditing(budget);
-    setLimit(String(budget.limit_amount));
-    setCategoryId(budget.category_id);
+  const openEdit = (item) => {
+    setEditing(item);
+    setLimit(String(item.limit_amount));
+    setCategoryId(item.category_id);
     setModalVisible(true);
   };
 
@@ -135,7 +123,7 @@ export default function BudgetsScreen() {
     setSaving(true);
     try {
       if (editing) {
-        await updateBudget(editing.id, { limit_amount: value });
+        await updateBudget(editing.budget_id, { limit_amount: value });
       } else {
         await createBudget({
           limit_amount: value,
@@ -152,7 +140,7 @@ export default function BudgetsScreen() {
     }
   };
 
-  const confirmDelete = (budget) => {
+  const confirmDelete = (item) => {
     Alert.alert("Delete budget?", "This cannot be undone.", [
       { text: "Cancel", style: "cancel" },
       {
@@ -160,8 +148,10 @@ export default function BudgetsScreen() {
         style: "destructive",
         onPress: async () => {
           try {
-            await deleteBudget(budget.id);
-            setBudgets((prev) => prev.filter((b) => b.id !== budget.id));
+            await deleteBudget(item.budget_id);
+            setProgress((prev) =>
+              prev.filter((b) => b.budget_id !== item.budget_id)
+            );
           } catch (err) {
             Alert.alert("Could not delete", errorText(err));
           }
@@ -171,11 +161,9 @@ export default function BudgetsScreen() {
   };
 
   const renderItem = ({ item }) => {
-    const cat = categoryById(item.category_id);
-    const spent = spentByCategory[item.category_id] || 0;
-    const pct = item.limit_amount > 0 ? (spent / item.limit_amount) * 100 : 0;
+    const pct = item.percent_used;
     const barColor = pct >= 100 ? "#dc2626" : pct >= 80 ? "#f59e0b" : "#16a34a";
-    const remaining = item.limit_amount - spent;
+    const remaining = item.remaining;
 
     return (
       <TouchableOpacity
@@ -185,7 +173,7 @@ export default function BudgetsScreen() {
         activeOpacity={0.7}
       >
         <View style={styles.cardTop}>
-          <Text style={styles.cardTitle}>{cat?.name || "Unknown category"}</Text>
+          <Text style={styles.cardTitle}>{item.category_name}</Text>
           <Text style={styles.cardPct}>{Math.round(pct)}%</Text>
         </View>
         <View style={styles.barBg}>
@@ -198,7 +186,7 @@ export default function BudgetsScreen() {
         </View>
         <View style={styles.cardBottom}>
           <Text style={styles.cardSub}>
-            ₹{spent.toFixed(2)} of ₹{Number(item.limit_amount).toFixed(2)}
+            ₹{item.spent.toFixed(2)} of ₹{Number(item.limit_amount).toFixed(2)}
           </Text>
           <Text style={[styles.cardSub, remaining < 0 && { color: "#dc2626" }]}>
             {remaining >= 0
@@ -244,15 +232,15 @@ export default function BudgetsScreen() {
       </View>
 
       <FlatList
-        data={monthBudgets}
-        keyExtractor={(item) => String(item.id)}
+        data={progress}
+        keyExtractor={(item) => String(item.budget_id)}
         renderItem={renderItem}
         refreshing={refreshing}
         onRefresh={() => {
           setRefreshing(true);
           load();
         }}
-        contentContainerStyle={monthBudgets.length === 0 && styles.emptyWrap}
+        contentContainerStyle={progress.length === 0 && styles.emptyWrap}
         ListEmptyComponent={
           <Text style={styles.hint}>
             No budgets for this month. Tap "+ Add" to set one.
@@ -277,9 +265,7 @@ export default function BudgetsScreen() {
 
             <Text style={styles.label}>Category</Text>
             {editing ? (
-              <Text style={styles.fixedValue}>
-                {categoryById(editing.category_id)?.name || "Unknown"}
-              </Text>
+              <Text style={styles.fixedValue}>{editing.category_name}</Text>
             ) : availableCategories.length === 0 ? (
               <Text style={styles.hint}>
                 No expense categories left without a budget this month. Create
