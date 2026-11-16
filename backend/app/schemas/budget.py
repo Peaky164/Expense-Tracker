@@ -57,3 +57,14 @@ class BudgetOut(BaseModel):
     category_id: int
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class BudgetProgressOut(BaseModel):
+    budget_id: int
+    category_id: int
+    category_name: str
+    month: str
+    limit_amount: float
+    spent: float
+    remaining: float  # negative when over budget
+    percent_used: float  # not capped at 100

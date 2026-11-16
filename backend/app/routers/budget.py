@@ -1,4 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException
+from datetime import datetime, timezone
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from typing import List
 
@@ -7,7 +10,14 @@ from app.core.security import get_current_user
 from app.models.user import User
 from app.models.budget import Budget
 from app.models.category import Category
-from app.schemas.budget import BudgetCreate, BudgetUpdate, BudgetOut
+from app.models.transaction import Transaction
+from app.schemas.budget import (
+    MONTH_PATTERN,
+    BudgetCreate,
+    BudgetUpdate,
+    BudgetOut,
+    BudgetProgressOut,
+)
 
 router = APIRouter(prefix="/budgets", tags=["Budgets"])
 
@@ -56,6 +66,70 @@ def get_budgets(
     current_user: User = Depends(get_current_user),
 ):
     return db.query(Budget).filter(Budget.owner_id == current_user.id).all()
+
+
+@router.get("/progress", response_model=List[BudgetProgressOut])
+def get_budget_progress(
+    month: str = Query(..., description='Format "YYYY-MM", e.g. "2026-11"'),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if not MONTH_PATTERN.match(month):
+        raise HTTPException(
+            status_code=422, detail='Month must be in "YYYY-MM" format, e.g. "2026-11"'
+        )
+
+    # Same UTC month boundaries as /dashboard/summary
+    year, mon = int(month[:4]), int(month[5:])
+    start = datetime(year, mon, 1, tzinfo=timezone.utc)
+    end = (
+        datetime(year + 1, 1, 1, tzinfo=timezone.utc)
+        if mon == 12
+        else datetime(year, mon + 1, 1, tzinfo=timezone.utc)
+    )
+
+    rows = (
+        db.query(
+            Budget.id,
+            Budget.category_id,
+            Budget.month,
+            Budget.limit_amount,
+            Category.name,
+            func.coalesce(func.sum(Transaction.amount), 0.0),
+        )
+        .join(Category, Category.id == Budget.category_id)
+        .outerjoin(
+            Transaction,
+            (Transaction.category_id == Budget.category_id)
+            & (Transaction.owner_id == Budget.owner_id)
+            & (Transaction.date >= start)
+            & (Transaction.date < end),
+        )
+        .filter(Budget.owner_id == current_user.id, Budget.month == month)
+        .group_by(
+            Budget.id,
+            Budget.category_id,
+            Budget.month,
+            Budget.limit_amount,
+            Category.name,
+        )
+        .order_by(Category.name)
+        .all()
+    )
+
+    return [
+        BudgetProgressOut(
+            budget_id=budget_id,
+            category_id=category_id,
+            category_name=category_name,
+            month=budget_month,
+            limit_amount=limit_amount,
+            spent=float(spent),
+            remaining=limit_amount - float(spent),
+            percent_used=round(float(spent) / limit_amount * 100, 1),
+        )
+        for budget_id, category_id, budget_month, limit_amount, category_name, spent in rows
+    ]
 
 
 @router.put("/{budget_id}", response_model=BudgetOut)
