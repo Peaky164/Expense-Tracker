@@ -13,16 +13,28 @@ services:
       timeout: 3s
       retries: 10
 
-  api:
+  migrate:
     build: .
-    ports:
-      - "8000:8000"
+    image: expense-api
+    command: alembic upgrade head
     environment:
       DATABASE_URL: postgresql+psycopg://expense:local_dev_password@db:5432/expense_db
       SECRET_KEY: fake-local-secret-not-for-production
     depends_on:
       db:
         condition: service_healthy
+
+  api:
+    build: .
+    image: expense-api
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+psycopg://expense:local_dev_password@db:5432/expense_db
+      SECRET_KEY: fake-local-secret-not-for-production
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
 
 volumes:
   pgdata:
