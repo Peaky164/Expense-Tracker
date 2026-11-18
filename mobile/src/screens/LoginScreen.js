@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { login, getMe } from '../api/auth';
 
-export default function LoginScreen({ onLoggedIn }) {
+export default function LoginScreen({ onLoggedIn, onGoSignup }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -21,6 +21,8 @@ export default function LoginScreen({ onLoggedIn }) {
     } catch (e) {
       if (e.response?.status === 401 || e.response?.status === 400) {
         setError('Wrong email or password.');
+      } else if (e.response?.status === 429) {
+        setError('Too many attempts. Wait a minute and try again.');
       } else if (!e.response) {
         setError('Cannot reach the server. Check Wi-Fi and the API address.');
       } else {
@@ -56,6 +58,9 @@ export default function LoginScreen({ onLoggedIn }) {
       <TouchableOpacity style={styles.button} onPress={handleLogin} disabled={loading}>
         {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Log in</Text>}
       </TouchableOpacity>
+      <TouchableOpacity onPress={onGoSignup}>
+        <Text style={styles.link}>New here? Create an account</Text>
+      </TouchableOpacity>
     </KeyboardAvoidingView>
   );
 }
@@ -67,4 +72,5 @@ const styles = StyleSheet.create({
   button: { backgroundColor: '#4f46e5', padding: 14, borderRadius: 8, alignItems: 'center', marginTop: 8 },
   buttonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
   error: { color: '#dc2626', marginBottom: 8 },
+  link: { color: '#4f46e5', textAlign: 'center', marginTop: 20 },
 });

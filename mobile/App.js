@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { View, ActivityIndicator, Alert } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import LoginScreen from './src/screens/LoginScreen';
+import SignupScreen from './src/screens/SignupScreen';
 import LockScreen from './src/screens/LockScreen';
 import MainTabs from './src/navigation/MainTabs';
 import { getMe } from './src/api/auth';
@@ -18,6 +19,7 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [checking, setChecking] = useState(true);
   const [locked, setLocked] = useState(false);
+  const [showSignup, setShowSignup] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -38,12 +40,14 @@ export default function App() {
   const logout = async () => {
     await clearToken();
     setLocked(false);
+    setShowSignup(false);
     setUser(null);
   };
 
-  // Runs after a successful password login
+  // Runs after a successful password login or signup
   const handleLoggedIn = async (me) => {
     setLocked(false); // they just typed the password, no need to lock
+    setShowSignup(false);
     setUser(me);
     try {
       if ((await canUseBiometrics()) && !(await wasBiometricPrompted())) {
@@ -70,7 +74,13 @@ export default function App() {
     );
   }
 
-  if (!user) return <LoginScreen onLoggedIn={handleLoggedIn} />;
+  if (!user) {
+    return showSignup ? (
+      <SignupScreen onLoggedIn={handleLoggedIn} onBack={() => setShowSignup(false)} />
+    ) : (
+      <LoginScreen onLoggedIn={handleLoggedIn} onGoSignup={() => setShowSignup(true)} />
+    );
+  }
 
   if (locked) {
     return <LockScreen onUnlock={() => setLocked(false)} onLogout={logout} />;

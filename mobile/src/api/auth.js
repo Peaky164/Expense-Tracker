@@ -7,6 +7,12 @@ export async function login(email, password) {
   return data;
 }
 
+// Creates the account only. The caller then logs in with the same credentials.
+export async function signup(name, email, password) {
+  const { data } = await client.post('/auth/signup', { name, email, password });
+  return data;
+}
+
 export async function getMe() {
   const { data } = await client.get('/auth/me');
   return data;
