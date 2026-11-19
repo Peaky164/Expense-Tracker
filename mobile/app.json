@@ -9,6 +9,12 @@
     },
     "plugins": [
       "expo-secure-store"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "664790cd-b5b7-41d1-910e-84f86c9df351"
+      }
+    },
+    "owner": "sujal2436"
   }
 }
