@@ -1,5 +1,6 @@
 module.exports = ({ config }) => ({
-  ...config,
+    ...config,
+  plugins: [...(config.plugins || []), "@react-native-google-signin/google-signin"],
   android: {
     ...config.android,
     googleServicesFile:

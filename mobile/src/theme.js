@@ -1,0 +1,15 @@
+export const colors = {
+  background: '#080808',
+  charcoal: '#121212',
+  card: '#1A1A1A',
+  gold: '#D4AF37',
+  champagne: '#FFD76A',
+  deepGold: '#B8860B',
+  brightGold: '#FFD700',
+  text: '#FFFFFF',
+  textSecondary: '#A3A3A3',
+  income: '#22C55E',
+  expense: '#EF4444',
+  antique: '#9E7920',
+  dark: '#8A6D1D',
+};

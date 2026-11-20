@@ -17,3 +17,9 @@ export async function getMe() {
   const { data } = await client.get('/auth/me');
   return data;
 }
+
+export async function googleLogin(idToken) {
+  const { data } = await client.post('/auth/google', { id_token: idToken });
+  await saveToken(data.access_token);
+  return data;
+}
