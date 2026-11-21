@@ -3,7 +3,8 @@ import {
   View, Text, TextInput, TouchableOpacity, ActivityIndicator,
   StyleSheet, KeyboardAvoidingView, Platform, ScrollView,
 } from 'react-native';
-import { signup, login, getMe } from '../api/auth';
+import { signup, login, getMe, googleLogin } from '../api/auth';
+import { getGoogleIdToken } from '../googleSignIn';
 import { colors } from '../theme';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -48,6 +49,28 @@ export default function SignupScreen({ onLoggedIn, onBack }) {
         setError('Cannot reach the server. Check Wi-Fi and the API address.');
       } else {
         setError('Something went wrong. Try again.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogle = async () => {
+    setError('');
+    setLoading(true);
+    try {
+      const idToken = await getGoogleIdToken();
+      if (!idToken) return;
+      await googleLogin(idToken);
+      const user = await getMe();
+      onLoggedIn(user);
+    } catch (e) {
+      if (e.response?.status === 401) {
+        setError('Google sign-in was rejected by the server.');
+      } else if (e.response?.status === 503) {
+        setError('Google sign-in is not set up on the server.');
+      } else {
+        setError('Google sign-in failed. Try again.');
       }
     } finally {
       setLoading(false);
@@ -118,6 +141,16 @@ export default function SignupScreen({ onLoggedIn, onBack }) {
             )}
           </TouchableOpacity>
 
+          <View style={styles.dividerRow}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>or</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          <TouchableOpacity style={styles.googleButton} onPress={handleGoogle} disabled={loading}>
+            <Text style={styles.googleText}>Continue with Google</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity onPress={onBack}>
             <Text style={styles.linkMuted}>
               Already have an account? <Text style={styles.link}>Log In</Text>
@@ -167,6 +200,20 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   buttonText: { color: '#000000', fontSize: 16, fontWeight: '700' },
+  dividerRow: { flexDirection: 'row', alignItems: 'center', marginTop: 20 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: colors.dark },
+  dividerText: { color: colors.textSecondary, marginHorizontal: 12 },
+  googleButton: {
+    height: 52,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: colors.gold,
+    backgroundColor: colors.background,
+  },
+  googleText: { color: colors.gold, fontSize: 16, fontWeight: '700' },
   error: { color: colors.expense, marginBottom: 8 },
   linkMuted: { color: colors.textSecondary, textAlign: 'center', marginTop: 20 },
   link: { color: colors.champagne, fontWeight: '600' },
