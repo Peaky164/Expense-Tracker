@@ -7,6 +7,7 @@ from app.core.security import get_current_user
 from app.models.user import User
 from app.models.transaction import Transaction
 from app.models.category import Category
+from app.core.budget_alerts import check_budget_alerts
 from app.schemas.transaction import TransactionCreate, TransactionOut, TransactionUpdate
 
 router = APIRouter(prefix="/transactions", tags=["Transactions"])
@@ -36,6 +37,9 @@ def create_transaction(
     db.add(new_transaction)
     db.commit()
     db.refresh(new_transaction)
+    check_budget_alerts(
+        db, current_user.id, new_transaction.category_id, new_transaction.date
+    )
     return new_transaction
 
 
@@ -108,6 +112,9 @@ def update_transaction(
 
     db.commit()
     db.refresh(transaction)
+    check_budget_alerts(
+        db, current_user.id, transaction.category_id, transaction.date
+    )
     return transaction
 
 
