@@ -11,7 +11,7 @@ from app.models import user as user_model
 from app.models import category as category_model
 from app.models import transaction as transaction_model
 from app.models import budget as budget_model
-from app.routers import auth, category, transaction, budget, dashboard
+from app.routers import auth, category, transaction, budget, dashboard, push_token
 
 app = FastAPI(title="Expense Tracker API")
 app.state.limiter = limiter
@@ -37,6 +37,7 @@ app.include_router(category.router)
 app.include_router(transaction.router)
 app.include_router(budget.router)
 app.include_router(dashboard.router)
+app.include_router(push_token.router)
 
 
 @app.get("/")
