@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { View, ActivityIndicator, Alert } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import LoginScreen from './src/screens/LoginScreen';
@@ -7,6 +7,8 @@ import LockScreen from './src/screens/LockScreen';
 import MainTabs from './src/navigation/MainTabs';
 import { getMe } from './src/api/auth';
 import { clearToken } from './src/storage/token';
+import { registerPushToken, unregisterPushToken } from './src/api/pushTokens';
+import { getPushToken } from './src/pushNotifications';
 import {
   canUseBiometrics,
   isBiometricEnabled,
@@ -20,6 +22,23 @@ export default function App() {
   const [checking, setChecking] = useState(true);
   const [locked, setLocked] = useState(false);
   const [showSignup, setShowSignup] = useState(false);
+  const pushTokenRef = useRef(null);
+
+  // Whenever someone is logged in, register this phone for budget alerts
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      try {
+        const token = await getPushToken();
+        if (token) {
+          await registerPushToken(token);
+          pushTokenRef.current = token;
+        }
+      } catch (e) {
+        // Push is optional; never block the app because of it
+      }
+    })();
+  }, [user]);
 
   useEffect(() => {
     (async () => {
@@ -38,6 +57,15 @@ export default function App() {
   }, []);
 
   const logout = async () => {
+    // Stop budget alerts for this account on this phone (needs the login token, so do it first)
+    try {
+      if (pushTokenRef.current) {
+        await unregisterPushToken(pushTokenRef.current);
+        pushTokenRef.current = null;
+      }
+    } catch (e) {
+      // If this fails (e.g. offline), logging out must still work
+    }
     await clearToken();
     setLocked(false);
     setShowSignup(false);
