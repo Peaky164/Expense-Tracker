@@ -34,6 +34,8 @@ def create_transaction(
         category_id=transaction.category_id,
         owner_id=current_user.id,
     )
+    if transaction.date is not None:
+        new_transaction.date = transaction.date
     db.add(new_transaction)
     db.commit()
     db.refresh(new_transaction)

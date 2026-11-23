@@ -1,5 +1,5 @@
 from pydantic import BaseModel, field_validator, ConfigDict
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 
@@ -8,6 +8,17 @@ class TransactionCreate(BaseModel):
     description: Optional[str] = None
     payment_mode: Optional[str] = None
     category_id: int
+    # Optional: when the spending really happened (e.g. an offline entry or an SMS)
+    date: Optional[datetime] = None
+
+    @field_validator("date")
+    @classmethod
+    def date_as_utc(cls, v: Optional[datetime]) -> Optional[datetime]:
+        if v is None:
+            return v
+        if v.tzinfo is None:
+            return v.replace(tzinfo=timezone.utc)
+        return v.astimezone(timezone.utc)
 
     @field_validator("amount")
     @classmethod
