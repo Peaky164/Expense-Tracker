@@ -22,6 +22,8 @@ import {
   updateTransaction,
 } from "../api/transactions";
 import { getCategories } from "../api/categories";
+import { saveOffline, loadOffline, isNetworkError } from "../storage/offline";
+import { flushPending, addPending, getPending } from "../storage/pendingQueue";
 
 const PAYMENT_MODES = ["Cash", "UPI", "Card", "Other"];
 const PAGE_SIZE = 20;
@@ -54,6 +56,8 @@ export default function TransactionsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  const [offline, setOffline] = useState(false);
+  const [pending, setPending] = useState([]);
 
   const [modalVisible, setModalVisible] = useState(false);
   const [editing, setEditing] = useState(null); // transaction being edited, or null
@@ -66,6 +70,9 @@ export default function TransactionsScreen() {
   // Loads page 1 (server returns newest first)
   const load = useCallback(async () => {
     try {
+      // Upload anything that was saved while offline, then load fresh data
+      await flushPending();
+      setPending(await getPending());
       const [txs, cats] = await Promise.all([
         getTransactions(0, PAGE_SIZE),
         getCategories(),
@@ -73,8 +80,25 @@ export default function TransactionsScreen() {
       setTransactions(txs);
       setCategories(cats);
       setHasMore(txs.length === PAGE_SIZE);
+      setOffline(false);
+      saveOffline("transactions", txs);
+      saveOffline("categories", cats);
     } catch (err) {
-      Alert.alert("Could not load data", errorText(err));
+      if (isNetworkError(err)) {
+        // No connection: show the last saved copy instead of an error
+        const cachedTxs = await loadOffline("transactions");
+        const cachedCats = await loadOffline("categories");
+        if (cachedTxs && cachedCats) {
+          setTransactions(cachedTxs);
+          setCategories(cachedCats);
+          setHasMore(false);
+          setOffline(true);
+        } else {
+          Alert.alert("Could not load data", errorText(err));
+        }
+      } else {
+        Alert.alert("Could not load data", errorText(err));
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -148,7 +172,23 @@ export default function TransactionsScreen() {
       setModalVisible(false);
       await load();
     } catch (err) {
-      Alert.alert("Could not save", errorText(err));
+      if (!editing && isNetworkError(err)) {
+        // No connection: keep it on the phone and upload later
+        await addPending({
+          amount: value,
+          description: description.trim() || null,
+          payment_mode: paymentMode,
+          category_id: categoryId,
+        });
+        setPending(await getPending());
+        setModalVisible(false);
+        Alert.alert(
+          "Saved offline",
+          "It will upload automatically when you are back online."
+        );
+      } else {
+        Alert.alert("Could not save", errorText(err));
+      }
     } finally {
       setSaving(false);
     }
@@ -236,16 +276,55 @@ export default function TransactionsScreen() {
         ListFooterComponent={
           loadingMore ? <ActivityIndicator style={{ margin: 16 }} /> : null
         }
+        ListHeaderComponent={
+          <View>
+            {offline && (
+              <Text style={styles.offlineBanner}>
+                You are offline. Showing your last saved data.
+              </Text>
+            )}
+            {pending.map((p) => {
+              const pc = categoryById(p.category_id);
+              const pIncome = pc?.type === "income";
+              return (
+                <View key={p.localId} style={styles.row}>
+                  <View style={styles.rowLeft}>
+                    <Text style={styles.rowTitle}>
+                      {p.description || pc?.name || "Transaction"}
+                    </Text>
+                    <Text style={styles.rowSub}>
+                      {pc?.name || "Unknown category"} • Waiting to upload
+                    </Text>
+                  </View>
+                  <Text
+                    style={[
+                      styles.amount,
+                      { color: pIncome ? "#16a34a" : "#dc2626" },
+                    ]}
+                  >
+                    {pIncome ? "+" : "-"}₹{Number(p.amount).toFixed(2)}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
+        }
         refreshing={refreshing}
         onRefresh={() => {
           setRefreshing(true);
           load();
         }}
-        contentContainerStyle={transactions.length === 0 && styles.emptyWrap}
+        contentContainerStyle={
+          transactions.length === 0 && pending.length === 0 && !offline
+            ? styles.emptyWrap
+            : undefined
+        }
         ListEmptyComponent={
-          <Text style={styles.hint}>
-            No transactions yet. Tap "+ Add" to create one.
-          </Text>
+          pending.length === 0 ? (
+            <Text style={styles.hint}>
+              No transactions yet. Tap "+ Add" to create one.
+            </Text>
+          ) : null
         }
       />
 
@@ -390,6 +469,13 @@ const styles = StyleSheet.create({
   deleteText: { color: "#dc2626", fontSize: 12, marginTop: 4 },
   emptyWrap: { flexGrow: 1, alignItems: "center", justifyContent: "center" },
   hint: { color: "#666", marginTop: 8, textAlign: "center" },
+  offlineBanner: {
+    backgroundColor: "#fef3c7",
+    color: "#92400e",
+    textAlign: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
   form: { padding: 16 },
   label: { fontSize: 14, fontWeight: "600", marginTop: 16, marginBottom: 6 },
   input: {

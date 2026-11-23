@@ -9,6 +9,7 @@ import { getMe } from './src/api/auth';
 import { clearToken } from './src/storage/token';
 import { registerPushToken, unregisterPushToken } from './src/api/pushTokens';
 import { getPushToken } from './src/pushNotifications';
+import { clearOfflineData } from './src/storage/offline';
 import {
   canUseBiometrics,
   isBiometricEnabled,
@@ -67,6 +68,7 @@ export default function App() {
       // If this fails (e.g. offline), logging out must still work
     }
     await clearToken();
+    await clearOfflineData();
     setLocked(false);
     setShowSignup(false);
     setUser(null);
