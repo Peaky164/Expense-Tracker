@@ -20,13 +20,15 @@ export async function getAllTransactions() {
   return all;
 }
 
-export async function createTransaction({ amount, description, payment_mode, category_id }) {
-  const res = await client.post("/transactions/", {
+export async function createTransaction({ amount, description, payment_mode, category_id, date }) {
+  const body = {
     amount: Number(amount),
     description,
     payment_mode,
     category_id: Number(category_id),
-  });
+  };
+  if (date) body.date = date; // optional: server uses its own time if missing
+  const res = await client.post("/transactions/", body);
   return res.data;
 }
 

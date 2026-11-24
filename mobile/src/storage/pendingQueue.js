@@ -14,7 +14,7 @@ export async function addPending(payload) {
   const item = {
     ...payload,
     localId: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    createdAt: new Date().toISOString(),
+    createdAt: payload.date || new Date().toISOString(),
   };
   await saveOffline(KEY, [...list, item]);
   return item;
@@ -31,7 +31,7 @@ export async function flushPending() {
     let list = await getPending();
     while (list.length > 0) {
       try {
-        await createTransaction(list[0]);
+        await createTransaction({ ...list[0], date: list[0].createdAt });
         sent += 1;
       } catch (err) {
         if (isNetworkError(err)) break; // still offline, try again later

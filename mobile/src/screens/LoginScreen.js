@@ -50,7 +50,11 @@ export default function LoginScreen({ onLoggedIn, onGoSignup }) {
       } else if (e.response?.status === 503) {
         setError('Google sign-in is not set up on the server.');
       } else {
-        setError('Google sign-in failed. Try again.');
+        setError(
+          !e.response && e.code === 'ERR_NETWORK'
+            ? 'Cannot reach the server. Check Wi-Fi and the API address.'
+            : 'Google sign-in failed. Try again.'
+        );
       }
     } finally {
       setLoading(false);

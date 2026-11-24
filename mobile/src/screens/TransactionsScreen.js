@@ -24,6 +24,7 @@ import {
 import { getCategories } from "../api/categories";
 import { saveOffline, loadOffline, isNetworkError } from "../storage/offline";
 import { flushPending, addPending, getPending } from "../storage/pendingQueue";
+import { parseSms } from "../smsParser";
 
 const PAYMENT_MODES = ["Cash", "UPI", "Card", "Other"];
 const PAGE_SIZE = 20;
@@ -66,6 +67,10 @@ export default function TransactionsScreen() {
   const [paymentMode, setPaymentMode] = useState("Cash");
   const [categoryId, setCategoryId] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [smsVisible, setSmsVisible] = useState(false);
+  const [smsText, setSmsText] = useState("");
+  const [smsDate, setSmsDate] = useState(null);
+  const [smsType, setSmsType] = useState(null);
 
   // Loads page 1 (server returns newest first)
   const load = useCallback(async () => {
@@ -130,6 +135,8 @@ export default function TransactionsScreen() {
 
   const openAdd = () => {
     setEditing(null);
+    setSmsDate(null);
+    setSmsType(null);
     setAmount("");
     setDescription("");
     setPaymentMode("Cash");
@@ -139,6 +146,8 @@ export default function TransactionsScreen() {
 
   const openEdit = (item) => {
     setEditing(item);
+    setSmsDate(null);
+    setSmsType(null);
     setAmount(String(item.amount));
     setDescription(item.description || "");
     setPaymentMode(item.payment_mode || "Cash");
@@ -164,6 +173,7 @@ export default function TransactionsScreen() {
         payment_mode: paymentMode,
         category_id: categoryId,
       };
+      if (!editing && smsDate) payload.date = smsDate;
       if (editing) {
         await updateTransaction(editing.id, payload);
       } else {
@@ -175,6 +185,7 @@ export default function TransactionsScreen() {
       if (!editing && isNetworkError(err)) {
         // No connection: keep it on the phone and upload later
         await addPending({
+          date: smsDate || undefined,
           amount: value,
           description: description.trim() || null,
           payment_mode: paymentMode,
@@ -192,6 +203,29 @@ export default function TransactionsScreen() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const openSms = () => {
+    setSmsText("");
+    setSmsVisible(true);
+  };
+
+  const handleUseSms = () => {
+    const parsed = parseSms(smsText);
+    setSmsVisible(false);
+    if (!parsed) {
+      Alert.alert("Could not understand this message", "Opening the normal form.");
+      openAdd();
+      return;
+    }
+    setEditing(null);
+    setSmsDate(parsed.date);
+    setSmsType(parsed.type);
+    setAmount(String(parsed.amount));
+    setDescription(parsed.description);
+    setPaymentMode(parsed.paymentMode || "Cash");
+    setCategoryId(null);
+    setModalVisible(true);
   };
 
   const confirmDelete = (item) => {
@@ -266,6 +300,38 @@ export default function TransactionsScreen() {
           <Text style={styles.addBtnText}>+ Add</Text>
         </TouchableOpacity>
       </View>
+
+      <TouchableOpacity style={styles.smsBtn} onPress={openSms}>
+        <Text style={styles.smsBtnText}>Paste SMS</Text>
+      </TouchableOpacity>
+
+      <Modal
+        visible={smsVisible}
+        animationType="slide"
+        onRequestClose={() => setSmsVisible(false)}
+      >
+        <SafeAreaView style={styles.container}>
+          <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
+            <Text style={styles.title}>Paste bank SMS</Text>
+            <Text style={styles.hint}>
+              Copy the SMS from your messages app and paste it here.
+            </Text>
+            <TextInput
+              style={[styles.input, { height: 140, textAlignVertical: "top", marginTop: 16 }]}
+              value={smsText}
+              onChangeText={setSmsText}
+              multiline
+              placeholder="Paste SMS here"
+            />
+            <TouchableOpacity style={styles.saveBtn} onPress={handleUseSms}>
+              <Text style={styles.saveBtnText}>Fill form</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.cancelBtn} onPress={() => setSmsVisible(false)}>
+              <Text style={styles.cancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
 
       <FlatList
         data={transactions}
@@ -346,6 +412,9 @@ export default function TransactionsScreen() {
                 {editing ? "Edit transaction" : "New transaction"}
               </Text>
 
+              {smsDate ? (
+                <Text style={styles.hint}>Date from SMS: {formatDate(smsDate)}</Text>
+              ) : null}
               <Text style={styles.label}>Amount (₹)</Text>
               <TextInput
                 style={styles.input}
@@ -390,7 +459,10 @@ export default function TransactionsScreen() {
                 </Text>
               ) : (
                 <View style={styles.chipWrap}>
-                  {categories.map((c) => (
+                  {(smsType && categories.some((c) => c.type === smsType)
+                    ? categories.filter((c) => c.type === smsType)
+                    : categories
+                  ).map((c) => (
                     <TouchableOpacity
                       key={c.id}
                       style={[
@@ -507,4 +579,15 @@ const styles = StyleSheet.create({
   saveBtnText: { color: "#fff", fontWeight: "700", fontSize: 16 },
   cancelBtn: { alignItems: "center", paddingVertical: 14 },
   cancelText: { color: "#666" },
+  smsBtn: {
+    alignSelf: "flex-start",
+    marginLeft: 16,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: "#2563eb",
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  smsBtnText: { color: "#2563eb", fontWeight: "600" },
 });

@@ -5,8 +5,13 @@ GoogleSignin.configure({
 });
 
 export async function getGoogleIdToken() {
-  await GoogleSignin.hasPlayServices();
-  const response = await GoogleSignin.signIn();
-  if (!isSuccessResponse(response)) return null;
-  return response.data.idToken;
+  try {
+    await GoogleSignin.hasPlayServices();
+    const response = await GoogleSignin.signIn();
+    if (!isSuccessResponse(response)) return null;
+    return response.data.idToken;
+  } catch (err) {
+
+    throw err;
+  }
 }
