@@ -15,6 +15,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
+import * as DocumentPicker from "expo-document-picker";
 import {
   getTransactions,
   createTransaction,
@@ -25,6 +26,7 @@ import { getCategories } from "../api/categories";
 import { saveOffline, loadOffline, isNetworkError } from "../storage/offline";
 import { flushPending, addPending, getPending } from "../storage/pendingQueue";
 import { parseSms } from "../smsParser";
+import { parseCsv } from "../csvParser";
 
 const PAYMENT_MODES = ["Cash", "UPI", "Card", "Other"];
 const PAGE_SIZE = 20;
@@ -71,6 +73,12 @@ export default function TransactionsScreen() {
   const [smsText, setSmsText] = useState("");
   const [smsDate, setSmsDate] = useState(null);
   const [smsType, setSmsType] = useState(null);
+  const [csvVisible, setCsvVisible] = useState(false);
+  const [csvRows, setCsvRows] = useState([]);
+  const [csvSkipped, setCsvSkipped] = useState(0);
+  const [csvExpenseCat, setCsvExpenseCat] = useState(null);
+  const [csvIncomeCat, setCsvIncomeCat] = useState(null);
+  const [csvImporting, setCsvImporting] = useState(false);
 
   // Loads page 1 (server returns newest first)
   const load = useCallback(async () => {
@@ -228,6 +236,82 @@ export default function TransactionsScreen() {
     setModalVisible(true);
   };
 
+  const pickCsv = async () => {
+    try {
+      const res = await DocumentPicker.getDocumentAsync({
+        type: "*/*",
+        copyToCacheDirectory: true,
+      });
+      if (res.canceled || !res.assets?.length) return;
+      const text = await (await fetch(res.assets[0].uri)).text();
+      const parsed = parseCsv(text);
+      if (!parsed || parsed.rows.length === 0) {
+        Alert.alert(
+          "Could not read this file",
+          text.startsWith("%PDF")
+            ? "This is a PDF. Please pick a CSV file (.csv)."
+            : "No rows with a date and an amount were found. Is it a bank statement CSV?"
+        );
+        return;
+      }
+      setCsvRows(parsed.rows);
+      setCsvSkipped(parsed.skipped);
+      setCsvExpenseCat(null);
+      setCsvIncomeCat(null);
+      setCsvVisible(true);
+    } catch (err) {
+      Alert.alert("Could not open file", String(err?.message || err));
+    }
+  };
+
+  const importCsv = async () => {
+    const needExpense = csvRows.some((r) => r.type === "expense");
+    const needIncome = csvRows.some((r) => r.type === "income");
+    if (
+      (needExpense && csvExpenseCat === null) ||
+      (needIncome && csvIncomeCat === null)
+    ) {
+      Alert.alert("Pick categories", "Choose a category for each type shown.");
+      return;
+    }
+    setCsvImporting(true);
+    let done = 0;
+    let failed = 0;
+    try {
+      for (const r of csvRows) {
+        try {
+          await createTransaction({
+            amount: r.amount,
+            description: r.description,
+            payment_mode: "Other",
+            category_id: r.type === "expense" ? csvExpenseCat : csvIncomeCat,
+            date: r.date,
+          });
+          done += 1;
+        } catch (err) {
+          if (isNetworkError(err) || err?.response?.status === 429) {
+            Alert.alert(
+              "Import stopped",
+              `Added ${done} of ${csvRows.length}. Do not import the same file again, or those ${done} will be added twice.`
+            );
+            setCsvVisible(false);
+            await load();
+            return;
+          }
+          failed += 1;
+        }
+      }
+      Alert.alert(
+        "Import finished",
+        `Added ${done} transactions.` + (failed ? ` ${failed} were rejected.` : "")
+      );
+      setCsvVisible(false);
+      await load();
+    } finally {
+      setCsvImporting(false);
+    }
+  };
+
   const confirmDelete = (item) => {
     Alert.alert("Delete transaction?", "This cannot be undone.", [
       { text: "Cancel", style: "cancel" },
@@ -245,6 +329,13 @@ export default function TransactionsScreen() {
       },
     ]);
   };
+
+  // Numbers for the CSV preview screen
+  const csvExpenseRows = csvRows.filter((r) => r.type === "expense");
+  const csvIncomeRows = csvRows.filter((r) => r.type === "income");
+  const sumOf = (rows) => rows.reduce((s, r) => s + r.amount, 0);
+  const expenseCats = categories.filter((c) => c.type === "expense");
+  const incomeCats = categories.filter((c) => c.type === "income");
 
   const renderItem = ({ item }) => {
     const cat = categoryById(item.category_id);
@@ -301,9 +392,14 @@ export default function TransactionsScreen() {
         </TouchableOpacity>
       </View>
 
-      <TouchableOpacity style={styles.smsBtn} onPress={openSms}>
-        <Text style={styles.smsBtnText}>Paste SMS</Text>
-      </TouchableOpacity>
+      <View style={styles.btnRow}>
+        <TouchableOpacity style={styles.smsBtn} onPress={openSms}>
+          <Text style={styles.smsBtnText}>Paste SMS</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.smsBtn} onPress={pickCsv}>
+          <Text style={styles.smsBtnText}>Import CSV</Text>
+        </TouchableOpacity>
+      </View>
 
       <Modal
         visible={smsVisible}
@@ -327,6 +423,127 @@ export default function TransactionsScreen() {
               <Text style={styles.saveBtnText}>Fill form</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.cancelBtn} onPress={() => setSmsVisible(false)}>
+              <Text style={styles.cancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
+
+      <Modal
+        visible={csvVisible}
+        animationType="slide"
+        onRequestClose={() => !csvImporting && setCsvVisible(false)}
+      >
+        <SafeAreaView style={styles.container}>
+          <ScrollView contentContainerStyle={styles.form}>
+            <Text style={styles.title}>Import statement</Text>
+            <Text style={styles.hint}>
+              Found {csvRows.length} transactions
+              {csvSkipped ? ` (${csvSkipped} rows skipped)` : ""}.
+            </Text>
+            <Text style={styles.hint}>
+              Expenses: {csvExpenseRows.length} (₹{sumOf(csvExpenseRows).toFixed(2)}) •
+              Income: {csvIncomeRows.length} (₹{sumOf(csvIncomeRows).toFixed(2)})
+            </Text>
+            <Text style={styles.hint}>
+              Importing the same file twice will add the transactions twice.
+            </Text>
+
+            {csvExpenseRows.length > 0 && (
+              <View>
+                <Text style={styles.label}>Category for all expenses</Text>
+                {expenseCats.length === 0 ? (
+                  <Text style={styles.hint}>
+                    No expense category yet. Create one in the Categories tab first.
+                  </Text>
+                ) : (
+                  <View style={styles.chipWrap}>
+                    {expenseCats.map((c) => (
+                      <TouchableOpacity
+                        key={c.id}
+                        style={[styles.chip, csvExpenseCat === c.id && styles.chipActive]}
+                        onPress={() => setCsvExpenseCat(c.id)}
+                      >
+                        <Text
+                          style={[
+                            styles.chipText,
+                            csvExpenseCat === c.id && styles.chipTextActive,
+                          ]}
+                        >
+                          {c.name}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+              </View>
+            )}
+
+            {csvIncomeRows.length > 0 && (
+              <View>
+                <Text style={styles.label}>Category for all income</Text>
+                {incomeCats.length === 0 ? (
+                  <Text style={styles.hint}>
+                    No income category yet. Create one in the Categories tab first.
+                  </Text>
+                ) : (
+                  <View style={styles.chipWrap}>
+                    {incomeCats.map((c) => (
+                      <TouchableOpacity
+                        key={c.id}
+                        style={[styles.chip, csvIncomeCat === c.id && styles.chipActive]}
+                        onPress={() => setCsvIncomeCat(c.id)}
+                      >
+                        <Text
+                          style={[
+                            styles.chipText,
+                            csvIncomeCat === c.id && styles.chipTextActive,
+                          ]}
+                        >
+                          {c.name}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+              </View>
+            )}
+
+            <Text style={styles.label}>First rows</Text>
+            {csvRows.slice(0, 5).map((r, i) => (
+              <View key={i} style={styles.row}>
+                <View style={styles.rowLeft}>
+                  <Text style={styles.rowTitle}>{r.description}</Text>
+                  <Text style={styles.rowSub}>{formatDate(r.date)}</Text>
+                </View>
+                <Text
+                  style={[
+                    styles.amount,
+                    { color: r.type === "income" ? "#16a34a" : "#dc2626" },
+                  ]}
+                >
+                  {r.type === "income" ? "+" : "-"}₹{r.amount.toFixed(2)}
+                </Text>
+              </View>
+            ))}
+            {csvRows.length > 5 && (
+              <Text style={styles.hint}>…and {csvRows.length - 5} more</Text>
+            )}
+
+            <TouchableOpacity
+              style={[styles.saveBtn, csvImporting && { opacity: 0.6 }]}
+              onPress={importCsv}
+              disabled={csvImporting}
+            >
+              <Text style={styles.saveBtnText}>
+                {csvImporting ? "Importing…" : `Import ${csvRows.length} transactions`}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.cancelBtn}
+              onPress={() => setCsvVisible(false)}
+              disabled={csvImporting}
+            >
               <Text style={styles.cancelText}>Cancel</Text>
             </TouchableOpacity>
           </ScrollView>
@@ -579,10 +796,14 @@ const styles = StyleSheet.create({
   saveBtnText: { color: "#fff", fontWeight: "700", fontSize: 16 },
   cancelBtn: { alignItems: "center", paddingVertical: 14 },
   cancelText: { color: "#666" },
-  smsBtn: {
-    alignSelf: "flex-start",
+  btnRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
     marginLeft: 16,
     marginBottom: 8,
+    gap: 8,
+  },
+  smsBtn: {
     borderWidth: 1,
     borderColor: "#2563eb",
     paddingHorizontal: 14,
