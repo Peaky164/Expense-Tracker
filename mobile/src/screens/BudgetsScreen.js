@@ -20,6 +20,7 @@ import {
   deleteBudget,
 } from "../api/budgets";
 import { getCategories } from "../api/categories";
+import { colors } from "../theme";
 
 function errorText(err) {
   const detail = err?.response?.data?.detail;
@@ -162,7 +163,9 @@ export default function BudgetsScreen() {
 
   const renderItem = ({ item }) => {
     const pct = item.percent_used;
-    const barColor = pct >= 100 ? "#dc2626" : pct >= 80 ? "#f59e0b" : "#16a34a";
+    // Gold normally, amber near the limit, red when reached or over
+    const barColor =
+      pct >= 100 ? colors.expense : pct >= 80 ? "#F59E0B" : colors.gold;
     const remaining = item.remaining;
 
     return (
@@ -174,7 +177,9 @@ export default function BudgetsScreen() {
       >
         <View style={styles.cardTop}>
           <Text style={styles.cardTitle}>{item.category_name}</Text>
-          <Text style={styles.cardPct}>{Math.round(pct)}%</Text>
+          <Text style={[styles.cardPct, { color: barColor }]}>
+            {Math.round(pct)}%
+          </Text>
         </View>
         <View style={styles.barBg}>
           <View
@@ -188,7 +193,9 @@ export default function BudgetsScreen() {
           <Text style={styles.cardSub}>
             ₹{item.spent.toFixed(2)} of ₹{Number(item.limit_amount).toFixed(2)}
           </Text>
-          <Text style={[styles.cardSub, remaining < 0 && { color: "#dc2626" }]}>
+          <Text
+            style={[styles.cardSub, remaining < 0 && { color: colors.expense }]}
+          >
             {remaining >= 0
               ? `₹${remaining.toFixed(2)} left`
               : `₹${Math.abs(remaining).toFixed(2)} over`}
@@ -204,7 +211,7 @@ export default function BudgetsScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.center}>
-        <ActivityIndicator size="large" />
+        <ActivityIndicator size="large" color={colors.gold} />
         <Text style={styles.hint}>
           Loading… the server may take a minute to wake up.
         </Text>
@@ -299,6 +306,7 @@ export default function BudgetsScreen() {
               onChangeText={setLimit}
               keyboardType="decimal-pad"
               placeholder="0.00"
+              placeholderTextColor={colors.textSecondary}
             />
 
             <TouchableOpacity
@@ -322,8 +330,14 @@ export default function BudgetsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff" },
-  center: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24 },
+  container: { flex: 1, backgroundColor: colors.background },
+  center: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 24,
+    backgroundColor: colors.background,
+  },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -331,14 +345,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
-  title: { fontSize: 22, fontWeight: "700" },
+  title: { fontSize: 22, fontWeight: "700", color: colors.gold },
   addBtn: {
-    backgroundColor: "#2563eb",
-    paddingHorizontal: 14,
+    backgroundColor: colors.gold,
+    paddingHorizontal: 16,
     paddingVertical: 8,
-    borderRadius: 8,
+    borderRadius: 10,
   },
-  addBtnText: { color: "#fff", fontWeight: "600" },
+  addBtnText: { color: "#000000", fontWeight: "700" },
   monthRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -346,62 +360,83 @@ const styles = StyleSheet.create({
     gap: 24,
     paddingBottom: 8,
   },
-  arrow: { fontSize: 32, paddingHorizontal: 12, color: "#2563eb" },
-  monthText: { fontSize: 16, fontWeight: "600", minWidth: 150, textAlign: "center" },
+  arrow: { fontSize: 32, paddingHorizontal: 12, color: colors.gold },
+  monthText: {
+    fontSize: 16,
+    fontWeight: "600",
+    minWidth: 150,
+    textAlign: "center",
+    color: colors.text,
+  },
   card: {
     marginHorizontal: 16,
     marginVertical: 6,
     padding: 14,
-    borderRadius: 10,
+    borderRadius: 14,
+    backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: "#e5e7eb",
+    borderColor: colors.antique,
+    shadowColor: colors.gold,
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 4,
   },
   cardTop: { flexDirection: "row", justifyContent: "space-between" },
-  cardTitle: { fontSize: 16, fontWeight: "600" },
-  cardPct: { fontSize: 14, fontWeight: "600", color: "#444" },
+  cardTitle: { fontSize: 16, fontWeight: "600", color: colors.text },
+  cardPct: { fontSize: 14, fontWeight: "700" },
   barBg: {
     height: 8,
-    backgroundColor: "#e5e7eb",
+    backgroundColor: colors.background,
     borderRadius: 4,
     marginVertical: 10,
     overflow: "hidden",
   },
   barFill: { height: 8, borderRadius: 4 },
   cardBottom: { flexDirection: "row", justifyContent: "space-between" },
-  cardSub: { fontSize: 12, color: "#666" },
-  deleteText: { color: "#dc2626", fontSize: 12, marginTop: 8 },
+  cardSub: { fontSize: 12, color: colors.textSecondary },
+  deleteText: { color: colors.expense, fontSize: 12, marginTop: 8 },
   emptyWrap: { flexGrow: 1, alignItems: "center", justifyContent: "center" },
-  hint: { color: "#666", marginTop: 8, textAlign: "center" },
+  hint: { color: colors.textSecondary, marginTop: 8, textAlign: "center" },
   form: { padding: 16 },
-  label: { fontSize: 14, fontWeight: "600", marginTop: 16, marginBottom: 6 },
-  fixedValue: { fontSize: 16, paddingVertical: 6 },
+  label: {
+    fontSize: 14,
+    fontWeight: "600",
+    marginTop: 16,
+    marginBottom: 6,
+    color: colors.champagne,
+  },
+  fixedValue: { fontSize: 16, paddingVertical: 6, color: colors.text },
   input: {
     borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 8,
+    borderColor: colors.dark,
+    borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 16,
+    color: colors.text,
+    backgroundColor: colors.card,
   },
   chipWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   chip: {
     borderWidth: 1,
-    borderColor: "#ccc",
+    borderColor: colors.dark,
+    backgroundColor: colors.card,
     borderRadius: 16,
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
-  chipActive: { backgroundColor: "#2563eb", borderColor: "#2563eb" },
-  chipText: { color: "#333" },
-  chipTextActive: { color: "#fff" },
+  chipActive: { backgroundColor: colors.gold, borderColor: colors.gold },
+  chipText: { color: colors.text },
+  chipTextActive: { color: "#000000", fontWeight: "700" },
   saveBtn: {
-    backgroundColor: "#2563eb",
-    borderRadius: 8,
+    backgroundColor: colors.gold,
+    borderRadius: 10,
     paddingVertical: 14,
     alignItems: "center",
     marginTop: 28,
   },
-  saveBtnText: { color: "#fff", fontWeight: "700", fontSize: 16 },
+  saveBtnText: { color: "#000000", fontWeight: "700", fontSize: 16 },
   cancelBtn: { alignItems: "center", paddingVertical: 14 },
-  cancelText: { color: "#666" },
+  cancelText: { color: colors.textSecondary },
 });

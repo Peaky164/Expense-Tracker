@@ -11,7 +11,9 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
+import { LinearGradient } from "expo-linear-gradient";
 import { getSummary } from "../api/dashboard";
+import { colors } from "../theme";
 
 function errorText(err) {
   const detail = err?.response?.data?.detail;
@@ -72,7 +74,7 @@ export default function DashboardScreen({ user, onLogout }) {
   if (loading) {
     return (
       <SafeAreaView style={styles.center}>
-        <ActivityIndicator size="large" />
+        <ActivityIndicator size="large" color={colors.gold} />
         <Text style={styles.hint}>
           Loading… the server may take a minute to wake up.
         </Text>
@@ -87,6 +89,9 @@ export default function DashboardScreen({ user, onLogout }) {
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
+            tintColor={colors.gold}
+            colors={[colors.gold]}
+            progressBackgroundColor={colors.card}
             onRefresh={() => {
               setRefreshing(true);
               load(month);
@@ -106,29 +111,45 @@ export default function DashboardScreen({ user, onLogout }) {
           </TouchableOpacity>
         </View>
 
-        <View
-          style={[
-            styles.balanceCard,
-            { backgroundColor: balance >= 0 ? "#16a34a" : "#dc2626" },
-          ]}
+        <LinearGradient
+          colors={
+            balance >= 0
+              ? [colors.deepGold, colors.brightGold]
+              : ["#7f1d1d", colors.expense]
+          }
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.balanceCard}
         >
-          <Text style={styles.balanceLabel}>Balance</Text>
-          <Text style={styles.balanceValue}>
+          <Text
+            style={[
+              styles.balanceLabel,
+              { color: balance >= 0 ? "#000000" : "#FFFFFF" },
+            ]}
+          >
+            Balance
+          </Text>
+          <Text
+            style={[
+              styles.balanceValue,
+              { color: balance >= 0 ? "#000000" : "#FFFFFF" },
+            ]}
+          >
             {balance < 0 ? "-" : ""}
             {money(Math.abs(balance))}
           </Text>
-        </View>
+        </LinearGradient>
 
         <View style={styles.row}>
           <View style={styles.smallCard}>
             <Text style={styles.smallLabel}>Income</Text>
-            <Text style={[styles.smallValue, { color: "#16a34a" }]}>
+            <Text style={[styles.smallValue, { color: colors.income }]}>
               {money(income)}
             </Text>
           </View>
           <View style={styles.smallCard}>
             <Text style={styles.smallLabel}>Expenses</Text>
-            <Text style={[styles.smallValue, { color: "#dc2626" }]}>
+            <Text style={[styles.smallValue, { color: colors.expense }]}>
               {money(expense)}
             </Text>
           </View>
@@ -169,10 +190,16 @@ export default function DashboardScreen({ user, onLogout }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff" },
-  center: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24 },
+  container: { flex: 1, backgroundColor: colors.background },
+  center: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 24,
+    backgroundColor: colors.background,
+  },
   content: { padding: 16, paddingBottom: 40 },
-  welcome: { fontSize: 22, fontWeight: "700" },
+  welcome: { fontSize: 22, fontWeight: "700", color: colors.gold },
   monthRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -180,35 +207,62 @@ const styles = StyleSheet.create({
     gap: 24,
     marginVertical: 12,
   },
-  arrow: { fontSize: 32, paddingHorizontal: 12, color: "#2563eb" },
-  monthText: { fontSize: 16, fontWeight: "600", minWidth: 150, textAlign: "center" },
-  balanceCard: { borderRadius: 12, padding: 20, marginBottom: 12 },
-  balanceLabel: { color: "#fff", opacity: 0.9, fontSize: 14 },
-  balanceValue: { color: "#fff", fontSize: 32, fontWeight: "700", marginTop: 4 },
+  arrow: { fontSize: 32, paddingHorizontal: 12, color: colors.gold },
+  monthText: {
+    fontSize: 16,
+    fontWeight: "600",
+    minWidth: 150,
+    textAlign: "center",
+    color: colors.text,
+  },
+  balanceCard: {
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 12,
+    shadowColor: colors.gold,
+    shadowOpacity: 0.4,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 8,
+  },
+  balanceLabel: { opacity: 0.85, fontSize: 14, fontWeight: "600" },
+  balanceValue: { fontSize: 32, fontWeight: "700", marginTop: 4 },
   row: { flexDirection: "row", gap: 12 },
   smallCard: {
     flex: 1,
+    backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: "#e5e7eb",
-    borderRadius: 12,
+    borderColor: colors.antique,
+    borderRadius: 14,
     padding: 14,
+    shadowColor: colors.gold,
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 4,
   },
-  smallLabel: { fontSize: 12, color: "#666" },
+  smallLabel: { fontSize: 12, color: colors.textSecondary },
   smallValue: { fontSize: 18, fontWeight: "700", marginTop: 4 },
-  sectionTitle: { fontSize: 16, fontWeight: "700", marginTop: 24, marginBottom: 8 },
-  hint: { color: "#666", marginTop: 8, textAlign: "center" },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    marginTop: 24,
+    marginBottom: 8,
+    color: colors.champagne,
+  },
+  hint: { color: colors.textSecondary, marginTop: 8, textAlign: "center" },
   catRow: { marginBottom: 14 },
   catTop: { flexDirection: "row", justifyContent: "space-between" },
-  catName: { fontSize: 14, fontWeight: "600" },
-  catAmount: { fontSize: 12, color: "#666" },
+  catName: { fontSize: 14, fontWeight: "600", color: colors.text },
+  catAmount: { fontSize: 12, color: colors.textSecondary },
   barBg: {
     height: 8,
-    backgroundColor: "#e5e7eb",
+    backgroundColor: colors.card,
     borderRadius: 4,
     marginTop: 6,
     overflow: "hidden",
   },
-  barFill: { height: 8, borderRadius: 4, backgroundColor: "#2563eb" },
+  barFill: { height: 8, borderRadius: 4, backgroundColor: colors.gold },
   logoutBtn: { alignItems: "center", paddingVertical: 24, marginTop: 8 },
-  logoutText: { color: "#4f46e5", fontSize: 16 },
+  logoutText: { color: colors.champagne, fontSize: 16 },
 });

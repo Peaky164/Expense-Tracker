@@ -27,6 +27,7 @@ import { saveOffline, loadOffline, isNetworkError } from "../storage/offline";
 import { flushPending, addPending, getPending } from "../storage/pendingQueue";
 import { parseSms } from "../smsParser";
 import { parseCsv } from "../csvParser";
+import { colors } from "../theme";
 
 const PAYMENT_MODES = ["Cash", "UPI", "Card", "Other"];
 const PAGE_SIZE = 20;
@@ -360,7 +361,10 @@ export default function TransactionsScreen() {
         </View>
         <View style={styles.rowRight}>
           <Text
-            style={[styles.amount, { color: isIncome ? "#16a34a" : "#dc2626" }]}
+            style={[
+              styles.amount,
+              { color: isIncome ? colors.income : colors.expense },
+            ]}
           >
             {isIncome ? "+" : "-"}₹{Number(item.amount).toFixed(2)}
           </Text>
@@ -375,7 +379,7 @@ export default function TransactionsScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.center}>
-        <ActivityIndicator size="large" />
+        <ActivityIndicator size="large" color={colors.gold} />
         <Text style={styles.hint}>
           Loading… the server may take a minute to wake up.
         </Text>
@@ -418,6 +422,7 @@ export default function TransactionsScreen() {
               onChangeText={setSmsText}
               multiline
               placeholder="Paste SMS here"
+              placeholderTextColor={colors.textSecondary}
             />
             <TouchableOpacity style={styles.saveBtn} onPress={handleUseSms}>
               <Text style={styles.saveBtnText}>Fill form</Text>
@@ -519,7 +524,7 @@ export default function TransactionsScreen() {
                 <Text
                   style={[
                     styles.amount,
-                    { color: r.type === "income" ? "#16a34a" : "#dc2626" },
+                    { color: r.type === "income" ? colors.income : colors.expense },
                   ]}
                 >
                   {r.type === "income" ? "+" : "-"}₹{r.amount.toFixed(2)}
@@ -557,7 +562,9 @@ export default function TransactionsScreen() {
         onEndReached={loadMore}
         onEndReachedThreshold={0.4}
         ListFooterComponent={
-          loadingMore ? <ActivityIndicator style={{ margin: 16 }} /> : null
+          loadingMore ? (
+            <ActivityIndicator style={{ margin: 16 }} color={colors.gold} />
+          ) : null
         }
         ListHeaderComponent={
           <View>
@@ -582,7 +589,7 @@ export default function TransactionsScreen() {
                   <Text
                     style={[
                       styles.amount,
-                      { color: pIncome ? "#16a34a" : "#dc2626" },
+                      { color: pIncome ? colors.income : colors.expense },
                     ]}
                   >
                     {pIncome ? "+" : "-"}₹{Number(p.amount).toFixed(2)}
@@ -600,7 +607,7 @@ export default function TransactionsScreen() {
         contentContainerStyle={
           transactions.length === 0 && pending.length === 0 && !offline
             ? styles.emptyWrap
-            : undefined
+            : { paddingBottom: 16 }
         }
         ListEmptyComponent={
           pending.length === 0 ? (
@@ -639,6 +646,7 @@ export default function TransactionsScreen() {
                 onChangeText={setAmount}
                 keyboardType="decimal-pad"
                 placeholder="0.00"
+                placeholderTextColor={colors.textSecondary}
               />
 
               <Text style={styles.label}>Description (optional)</Text>
@@ -647,6 +655,7 @@ export default function TransactionsScreen() {
                 value={description}
                 onChangeText={setDescription}
                 placeholder="e.g. Lunch"
+                placeholderTextColor={colors.textSecondary}
               />
 
               <Text style={styles.label}>Payment mode</Text>
@@ -725,8 +734,14 @@ export default function TransactionsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff" },
-  center: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24 },
+  container: { flex: 1, backgroundColor: colors.background },
+  center: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 24,
+    backgroundColor: colors.background,
+  },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -734,81 +749,100 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
-  title: { fontSize: 22, fontWeight: "700" },
+  title: { fontSize: 22, fontWeight: "700", color: colors.gold },
   addBtn: {
-    backgroundColor: "#2563eb",
-    paddingHorizontal: 14,
+    backgroundColor: colors.gold,
+    paddingHorizontal: 16,
     paddingVertical: 8,
-    borderRadius: 8,
+    borderRadius: 10,
   },
-  addBtnText: { color: "#fff", fontWeight: "600" },
+  addBtnText: { color: "#000000", fontWeight: "700" },
   row: {
     flexDirection: "row",
     justifyContent: "space-between",
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.dark,
+    borderRadius: 14,
+    marginHorizontal: 16,
+    marginTop: 10,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "#ddd",
+    shadowColor: colors.gold,
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 3,
   },
   rowLeft: { flex: 1, paddingRight: 12 },
   rowRight: { alignItems: "flex-end" },
-  rowTitle: { fontSize: 16, fontWeight: "600" },
-  rowSub: { fontSize: 12, color: "#666", marginTop: 2 },
+  rowTitle: { fontSize: 16, fontWeight: "600", color: colors.text },
+  rowSub: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
   amount: { fontSize: 16, fontWeight: "700" },
-  deleteText: { color: "#dc2626", fontSize: 12, marginTop: 4 },
+  deleteText: { color: colors.expense, fontSize: 12, marginTop: 4 },
   emptyWrap: { flexGrow: 1, alignItems: "center", justifyContent: "center" },
-  hint: { color: "#666", marginTop: 8, textAlign: "center" },
+  hint: { color: colors.textSecondary, marginTop: 8, textAlign: "center" },
   offlineBanner: {
-    backgroundColor: "#fef3c7",
-    color: "#92400e",
+    backgroundColor: colors.dark,
+    color: colors.champagne,
     textAlign: "center",
     paddingVertical: 8,
     paddingHorizontal: 12,
   },
   form: { padding: 16 },
-  label: { fontSize: 14, fontWeight: "600", marginTop: 16, marginBottom: 6 },
+  label: {
+    fontSize: 14,
+    fontWeight: "600",
+    marginTop: 16,
+    marginBottom: 6,
+    color: colors.champagne,
+  },
   input: {
     borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 8,
+    borderColor: colors.dark,
+    borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 16,
+    color: colors.text,
+    backgroundColor: colors.card,
   },
   chipWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   chip: {
     borderWidth: 1,
-    borderColor: "#ccc",
+    borderColor: colors.dark,
+    backgroundColor: colors.card,
     borderRadius: 16,
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
-  chipActive: { backgroundColor: "#2563eb", borderColor: "#2563eb" },
-  chipText: { color: "#333" },
-  chipTextActive: { color: "#fff" },
+  chipActive: { backgroundColor: colors.gold, borderColor: colors.gold },
+  chipText: { color: colors.text },
+  chipTextActive: { color: "#000000", fontWeight: "700" },
   saveBtn: {
-    backgroundColor: "#2563eb",
-    borderRadius: 8,
+    backgroundColor: colors.gold,
+    borderRadius: 10,
     paddingVertical: 14,
     alignItems: "center",
     marginTop: 28,
   },
-  saveBtnText: { color: "#fff", fontWeight: "700", fontSize: 16 },
+  saveBtnText: { color: "#000000", fontWeight: "700", fontSize: 16 },
   cancelBtn: { alignItems: "center", paddingVertical: 14 },
-  cancelText: { color: "#666" },
+  cancelText: { color: colors.textSecondary },
   btnRow: {
     flexDirection: "row",
     alignItems: "flex-start",
     marginLeft: 16,
-    marginBottom: 8,
+    marginBottom: 4,
     gap: 8,
   },
   smsBtn: {
     borderWidth: 1,
-    borderColor: "#2563eb",
+    borderColor: colors.gold,
+    backgroundColor: colors.background,
     paddingHorizontal: 14,
     paddingVertical: 8,
-    borderRadius: 8,
+    borderRadius: 10,
   },
-  smsBtnText: { color: "#2563eb", fontWeight: "600" },
+  smsBtnText: { color: colors.gold, fontWeight: "700" },
 });

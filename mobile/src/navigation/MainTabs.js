@@ -16,26 +16,33 @@ const ICONS = {
   Budgets: 'pie-chart',
 };
 
-
-
 export default function MainTabs({ user, onLogout }) {
   return (
-        <Tab.Navigator
-        screenOptions={({ route }) => ({
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name={ICONS[route.name]} size={size} color={color} />
-          ),
-          tabBarActiveTintColor: colors.gold,
-          tabBarInactiveTintColor: colors.textSecondary,
-          tabBarStyle: {
-            backgroundColor: colors.charcoal,
-            borderTopColor: colors.antique,
-          },
-        })}
-      >
+    <Tab.Navigator
+      screenOptions={({ route }) => ({
+        tabBarIcon: ({ color, size }) => (
+          <Ionicons name={ICONS[route.name]} size={size} color={color} />
+        ),
+        tabBarActiveTintColor: colors.gold,
+        tabBarInactiveTintColor: colors.textSecondary,
+        tabBarStyle: {
+          backgroundColor: colors.charcoal,
+          borderTopColor: colors.antique,
+        },
+        headerStyle: {
+          backgroundColor: colors.charcoal,
+          borderBottomColor: colors.antique,
+          borderBottomWidth: 1,
+          shadowColor: colors.gold,
+          elevation: 0,
+        },
+        headerTintColor: colors.gold,
+        headerTitleStyle: { color: colors.gold, fontWeight: '700' },
+      })}
+    >
       <Tab.Screen name="Dashboard">
-  {() => <DashboardScreen user={user} onLogout={onLogout} />}
-</Tab.Screen>
+        {() => <DashboardScreen user={user} onLogout={onLogout} />}
+      </Tab.Screen>
       <Tab.Screen name="Transactions" component={TransactionsScreen} />
       <Tab.Screen name="Categories" component={CategoriesScreen} />
       <Tab.Screen name="Budgets" component={BudgetsScreen} />

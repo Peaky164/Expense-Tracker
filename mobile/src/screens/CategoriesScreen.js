@@ -10,6 +10,7 @@ import {
   deleteCategory,
   updateCategory,
 } from '../api/categories';
+import { colors } from '../theme';
 
 export default function CategoriesScreen() {
   const [items, setItems] = useState([]);
@@ -81,13 +82,20 @@ export default function CategoriesScreen() {
     ]);
   };
 
-  if (loading) return <ActivityIndicator style={{ flex: 1 }} size="large" />;
+  if (loading) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center' }]}>
+        <ActivityIndicator size="large" color={colors.gold} />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
       <TextInput
         style={styles.input}
         placeholder="New category name"
+        placeholderTextColor={colors.textSecondary}
         value={name}
         onChangeText={setName}
       />
@@ -120,7 +128,14 @@ export default function CategoriesScreen() {
           <View style={styles.item}>
             <TouchableOpacity style={{ flex: 1 }} onPress={() => startEdit(item)}>
               <Text style={styles.itemName}>{item.name}</Text>
-              <Text style={styles.itemType}>{item.type}</Text>
+              <Text
+                style={[
+                  styles.itemType,
+                  { color: item.type === 'income' ? colors.income : colors.expense },
+                ]}
+              >
+                {item.type}
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => confirmDelete(item)}>
               <Text style={styles.delete}>Delete</Text>
@@ -133,20 +148,58 @@ export default function CategoriesScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: '#fff' },
-  input: { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 12, fontSize: 16, marginBottom: 12 },
+  container: { flex: 1, padding: 16, backgroundColor: colors.background },
+  input: {
+    borderWidth: 1,
+    borderColor: colors.dark,
+    borderRadius: 10,
+    padding: 12,
+    fontSize: 16,
+    marginBottom: 12,
+    color: colors.text,
+    backgroundColor: colors.card,
+  },
   row: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-  chip: { borderWidth: 1, borderColor: '#4f46e5', borderRadius: 16, paddingVertical: 6, paddingHorizontal: 14, marginRight: 8 },
-  chipActive: { backgroundColor: '#4f46e5' },
-  chipText: { color: '#4f46e5' },
-  chipTextActive: { color: '#fff' },
-  addBtn: { marginLeft: 'auto', backgroundColor: '#4f46e5', borderRadius: 8, paddingVertical: 8, paddingHorizontal: 20 },
-  addText: { color: '#fff', fontWeight: '600' },
-  error: { color: '#dc2626', marginBottom: 8 },
-  empty: { textAlign: 'center', color: '#888', marginTop: 24 },
-  item: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#eee' },
-  itemName: { fontSize: 16 },
-  itemType: { color: '#888', fontSize: 13 },
-  delete: { color: '#dc2626', fontSize: 15 },
-  cancelEdit: { color: '#4f46e5', marginBottom: 8 },
+  chip: {
+    borderWidth: 1,
+    borderColor: colors.gold,
+    borderRadius: 16,
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    marginRight: 8,
+  },
+  chipActive: { backgroundColor: colors.gold },
+  chipText: { color: colors.gold },
+  chipTextActive: { color: '#000000', fontWeight: '700' },
+  addBtn: {
+    marginLeft: 'auto',
+    backgroundColor: colors.gold,
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+  },
+  addText: { color: '#000000', fontWeight: '700' },
+  error: { color: colors.expense, marginBottom: 8 },
+  empty: { textAlign: 'center', color: colors.textSecondary, marginTop: 24 },
+  item: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.dark,
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginBottom: 10,
+    shadowColor: colors.gold,
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 3,
+  },
+  itemName: { fontSize: 16, color: colors.text },
+  itemType: { fontSize: 13 },
+  delete: { color: colors.expense, fontSize: 15 },
+  cancelEdit: { color: colors.champagne, marginBottom: 8 },
 });
