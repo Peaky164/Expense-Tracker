@@ -259,7 +259,7 @@ export default function BudgetsScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
-        <Text style={styles.title}>Budgets</Text>
+        <View />
         <TouchableOpacity style={styles.addBtn} onPress={openAdd}>
           <Text style={styles.addBtnText}>+ Add</Text>
         </TouchableOpacity>

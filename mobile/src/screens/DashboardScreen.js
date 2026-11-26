@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons } from "@react-native-vector-icons/ionicons";
 import { getSummary } from "../api/dashboard";
 import { saveOffline, loadOffline, isNetworkError } from "../storage/offline";
 import { colors } from "../theme";
@@ -41,7 +42,7 @@ function monthLabel(key) {
 
 const money = (n) => `₹${Number(n).toFixed(2)}`;
 
-export default function DashboardScreen({ user, onLogout }) {
+export default function DashboardScreen({ user, navigation }) {
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -85,6 +86,27 @@ export default function DashboardScreen({ user, onLogout }) {
   const count = summary?.transaction_count ?? 0;
   const breakdown = summary?.by_category ?? [];
 
+  const actions = [
+    {
+      label: "Add Income",
+      icon: "add-circle",
+      color: colors.income,
+      onPress: () => navigation.navigate("Transactions", { quickAdd: "income" }),
+    },
+    {
+      label: "Add Expense",
+      icon: "remove-circle",
+      color: colors.expense,
+      onPress: () => navigation.navigate("Transactions", { quickAdd: "expense" }),
+    },
+    {
+      label: "Set Budget",
+      icon: "flag",
+      color: colors.gold,
+      onPress: () => navigation.navigate("Budgets"),
+    },
+  ];
+
   if (loading) {
     return (
       <SafeAreaView style={styles.center}>
@@ -118,7 +140,8 @@ export default function DashboardScreen({ user, onLogout }) {
             You are offline. Showing your last saved data.
           </Text>
         )}
-        <Text style={styles.welcome}>Welcome, {user?.name}</Text>
+        <Text style={styles.hello}>Hello,</Text>
+        <Text style={styles.welcome}>{user?.name}</Text>
 
         <View style={styles.monthRow}>
           <TouchableOpacity onPress={() => setMonth(shiftMonth(month, -1))}>
@@ -146,7 +169,7 @@ export default function DashboardScreen({ user, onLogout }) {
               { color: balance >= 0 ? "#000000" : "#FFFFFF" },
             ]}
           >
-            Balance
+            Total Balance
           </Text>
           <Text
             style={[
@@ -174,6 +197,21 @@ export default function DashboardScreen({ user, onLogout }) {
           </View>
         </View>
 
+        <Text style={styles.sectionTitle}>Quick Actions</Text>
+        <View style={styles.actionsRow}>
+          {actions.map((a) => (
+            <TouchableOpacity
+              key={a.label}
+              style={styles.actionBtn}
+              onPress={a.onPress}
+              activeOpacity={0.8}
+            >
+              <Ionicons name={a.icon} size={28} color={a.color} />
+              <Text style={styles.actionText}>{a.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
         <Text style={styles.sectionTitle}>Spending by category</Text>
         {breakdown.length === 0 ? (
           <Text style={styles.hint}>
@@ -199,10 +237,6 @@ export default function DashboardScreen({ user, onLogout }) {
             );
           })
         )}
-
-        <TouchableOpacity style={styles.logoutBtn} onPress={onLogout}>
-          <Text style={styles.logoutText}>Log out</Text>
-        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
@@ -218,7 +252,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   content: { padding: 16, paddingBottom: 40 },
-  welcome: { fontSize: 22, fontWeight: "700", color: colors.gold },
+  hello: { fontSize: 16, color: colors.textSecondary },
+  welcome: { fontSize: 26, fontWeight: "700", color: colors.gold },
   monthRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -269,6 +304,22 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     color: colors.champagne,
   },
+  actionsRow: { flexDirection: "row", gap: 12 },
+  actionBtn: {
+    flex: 1,
+    alignItems: "center",
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.antique,
+    borderRadius: 14,
+    paddingVertical: 14,
+    shadowColor: colors.gold,
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 4,
+  },
+  actionText: { color: colors.text, fontSize: 12, marginTop: 6, fontWeight: "600" },
   hint: { color: colors.textSecondary, marginTop: 8, textAlign: "center" },
   offlineBanner: {
     backgroundColor: colors.dark,
@@ -291,6 +342,4 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   barFill: { height: 8, borderRadius: 4, backgroundColor: colors.gold },
-  logoutBtn: { alignItems: "center", paddingVertical: 24, marginTop: 8 },
-  logoutText: { color: colors.champagne, fontSize: 16 },
 });

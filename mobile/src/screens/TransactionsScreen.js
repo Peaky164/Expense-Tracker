@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -53,7 +53,7 @@ function formatDate(value) {
   });
 }
 
-export default function TransactionsScreen() {
+export default function TransactionsScreen({ route, navigation }) {
   const [transactions, setTransactions] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -163,6 +163,21 @@ export default function TransactionsScreen() {
     setCategoryId(item.category_id);
     setModalVisible(true);
   };
+
+  // Opened from the Dashboard's Add Income / Add Expense buttons
+  useEffect(() => {
+    const q = route?.params?.quickAdd;
+    if (!q) return;
+    navigation.setParams({ quickAdd: undefined });
+    setEditing(null);
+    setSmsDate(null);
+    setSmsType(q);
+    setAmount("");
+    setDescription("");
+    setPaymentMode("Cash");
+    setCategoryId(null);
+    setModalVisible(true);
+  }, [route?.params?.quickAdd]);
 
   const handleSave = async () => {
     const value = Number(amount);
@@ -390,7 +405,7 @@ export default function TransactionsScreen() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
-        <Text style={styles.title}>Transactions</Text>
+        <View />
         <TouchableOpacity style={styles.addBtn} onPress={openAdd}>
           <Text style={styles.addBtnText}>+ Add</Text>
         </TouchableOpacity>
@@ -633,7 +648,13 @@ export default function TransactionsScreen() {
               keyboardShouldPersistTaps="handled"
             >
               <Text style={styles.title}>
-                {editing ? "Edit transaction" : "New transaction"}
+                {editing
+                  ? "Edit transaction"
+                  : smsType === "income"
+                  ? "New income"
+                  : smsType === "expense"
+                  ? "New expense"
+                  : "New transaction"}
               </Text>
 
               {smsDate ? (
