@@ -16,6 +16,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
 import * as DocumentPicker from "expo-document-picker";
+import { Ionicons } from "@react-native-vector-icons/ionicons";
 import {
   getTransactions,
   createTransaction,
@@ -31,6 +32,35 @@ import { colors } from "../theme";
 
 const PAYMENT_MODES = ["Cash", "UPI", "Card", "Other"];
 const PAGE_SIZE = 20;
+const FILTERS = [
+  { key: "all", label: "All" },
+  { key: "income", label: "Income" },
+  { key: "expense", label: "Expense" },
+];
+
+// Icon guessed from the category name (the database has no icon field)
+const ICON_RULES = [
+  { words: ["food", "dining", "restaurant", "grocer", "lunch", "dinner", "snack"], icon: "restaurant", color: "#EF4444" },
+  { words: ["shop", "cloth", "mall"], icon: "cart", color: "#A855F7" },
+  { words: ["travel", "trip", "flight", "holiday"], icon: "airplane", color: "#22C55E" },
+  { words: ["transport", "fuel", "petrol", "taxi", "cab"], icon: "car", color: "#3B82F6" },
+  { words: ["rent", "home", "house"], icon: "home", color: "#EF4444" },
+  { words: ["entertain", "movie", "game"], icon: "film", color: "#EC4899" },
+  { words: ["health", "medic", "doctor"], icon: "medkit", color: "#14B8A6" },
+  { words: ["bill", "electric", "utilit", "recharge"], icon: "flash", color: "#F59E0B" },
+  { words: ["palour", "parlour", "salon", "beauty"], icon: "cut", color: "#F472B6" },
+  { words: ["salary", "income", "bonus"], icon: "cash", color: "#22C55E" },
+];
+
+function iconFor(cat) {
+  const n = (cat?.name || "").toLowerCase();
+  const rule = ICON_RULES.find((r) => r.words.some((w) => n.includes(w)));
+  const base = rule || (cat?.type === "income"
+    ? { icon: "cash", color: colors.income }
+    : { icon: "pricetag", color: colors.gold });
+  // Income categories always use green
+  return { icon: base.icon, color: cat?.type === "income" ? colors.income : base.color };
+}
 
 function errorText(err) {
   const detail = err?.response?.data?.detail;
@@ -62,6 +92,7 @@ export default function TransactionsScreen({ route, navigation }) {
   const [hasMore, setHasMore] = useState(true);
   const [offline, setOffline] = useState(false);
   const [pending, setPending] = useState([]);
+  const [filter, setFilter] = useState("all");
 
   const [modalVisible, setModalVisible] = useState(false);
   const [editing, setEditing] = useState(null); // transaction being edited, or null
@@ -141,6 +172,12 @@ export default function TransactionsScreen({ route, navigation }) {
   );
 
   const categoryById = (id) => categories.find((c) => c.id === id);
+
+  // The filter only looks at the transactions already loaded on the phone
+  const shown =
+    filter === "all"
+      ? transactions
+      : transactions.filter((t) => categoryById(t.category_id)?.type === filter);
 
   const openAdd = () => {
     setEditing(null);
@@ -356,6 +393,7 @@ export default function TransactionsScreen({ route, navigation }) {
   const renderItem = ({ item }) => {
     const cat = categoryById(item.category_id);
     const isIncome = cat?.type === "income";
+    const ic = iconFor(cat);
     return (
       <TouchableOpacity
         style={styles.row}
@@ -363,6 +401,9 @@ export default function TransactionsScreen({ route, navigation }) {
         onLongPress={() => confirmDelete(item)}
         activeOpacity={0.7}
       >
+        <View style={[styles.iconCircle, { backgroundColor: ic.color + "33" }]}>
+          <Ionicons name={ic.icon} size={20} color={ic.color} />
+        </View>
         <View style={styles.rowLeft}>
           <Text style={styles.rowTitle}>
             {item.description || cat?.name || "Transaction"}
@@ -418,6 +459,25 @@ export default function TransactionsScreen({ route, navigation }) {
         <TouchableOpacity style={styles.smsBtn} onPress={pickCsv}>
           <Text style={styles.smsBtnText}>Import CSV</Text>
         </TouchableOpacity>
+      </View>
+
+      <View style={styles.filterRow}>
+        {FILTERS.map((f) => (
+          <TouchableOpacity
+            key={f.key}
+            style={[styles.filterChip, filter === f.key && styles.filterChipActive]}
+            onPress={() => setFilter(f.key)}
+          >
+            <Text
+              style={[
+                styles.filterText,
+                filter === f.key && styles.filterTextActive,
+              ]}
+            >
+              {f.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
       <Modal
@@ -571,7 +631,7 @@ export default function TransactionsScreen({ route, navigation }) {
       </Modal>
 
       <FlatList
-        data={transactions}
+        data={shown}
         keyExtractor={(item) => String(item.id)}
         renderItem={renderItem}
         onEndReached={loadMore}
@@ -620,14 +680,16 @@ export default function TransactionsScreen({ route, navigation }) {
           load();
         }}
         contentContainerStyle={
-          transactions.length === 0 && pending.length === 0 && !offline
+          shown.length === 0 && pending.length === 0 && !offline
             ? styles.emptyWrap
             : { paddingBottom: 16 }
         }
         ListEmptyComponent={
           pending.length === 0 ? (
             <Text style={styles.hint}>
-              No transactions yet. Tap "+ Add" to create one.
+              {filter === "all"
+                ? 'No transactions yet. Tap "+ Add" to create one.'
+                : "No transactions of this type loaded."}
             </Text>
           ) : null
         }
@@ -780,6 +842,7 @@ const styles = StyleSheet.create({
   addBtnText: { color: "#000000", fontWeight: "700" },
   row: {
     flexDirection: "row",
+    alignItems: "center",
     justifyContent: "space-between",
     backgroundColor: colors.card,
     borderWidth: 1,
@@ -794,6 +857,14 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 0 },
     elevation: 3,
+  },
+  iconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
   },
   rowLeft: { flex: 1, paddingRight: 12 },
   rowRight: { alignItems: "flex-end" },
@@ -866,4 +937,22 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   smsBtnText: { color: colors.gold, fontWeight: "700" },
+  filterRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  filterChip: {
+    borderWidth: 1,
+    borderColor: colors.antique,
+    backgroundColor: colors.card,
+    borderRadius: 18,
+    paddingHorizontal: 18,
+    paddingVertical: 7,
+  },
+  filterChipActive: { backgroundColor: colors.gold, borderColor: colors.gold },
+  filterText: { color: colors.text, fontWeight: "600" },
+  filterTextActive: { color: "#000000", fontWeight: "700" },
 });
