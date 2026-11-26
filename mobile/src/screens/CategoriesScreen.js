@@ -10,7 +10,10 @@ import {
   deleteCategory,
   updateCategory,
 } from '../api/categories';
+import { saveOffline, loadOffline, isNetworkError } from '../storage/offline';
 import { colors } from '../theme';
+
+const OFFLINE_MSG = 'You are offline. Connect to the internet to change categories.';
 
 export default function CategoriesScreen() {
   const [items, setItems] = useState([]);
@@ -19,12 +22,28 @@ export default function CategoriesScreen() {
   const [type, setType] = useState('expense');
   const [error, setError] = useState('');
   const [editingId, setEditingId] = useState(null);
+  const [offline, setOffline] = useState(false);
 
   const load = async () => {
     try {
-      setItems(await getCategories());
+      const data = await getCategories();
+      setItems(data);
+      setOffline(false);
+      setError('');
+      saveOffline('categories', data);
     } catch (e) {
-      setError('Could not load categories.');
+      if (isNetworkError(e)) {
+        // No connection: show the last saved copy
+        const cached = await loadOffline('categories');
+        if (cached) {
+          setItems(cached);
+        } else {
+          setError('You are offline and nothing is saved yet.');
+        }
+        setOffline(true);
+      } else {
+        setError('Could not load categories.');
+      }
     } finally {
       setLoading(false);
     }
@@ -46,7 +65,11 @@ export default function CategoriesScreen() {
       setEditingId(null);
       await load();
     } catch (e) {
-      setError(e.response?.data?.detail?.toString() || 'Could not save category.');
+      if (isNetworkError(e)) {
+        setError(OFFLINE_MSG);
+      } else {
+        setError(e.response?.data?.detail?.toString() || 'Could not save category.');
+      }
     }
   };
 
@@ -75,7 +98,11 @@ export default function CategoriesScreen() {
             if (editingId === item.id) cancelEdit();
             await load();
           } catch (e) {
-            setError(e.response?.data?.detail?.toString() || 'Could not delete category.');
+            if (isNetworkError(e)) {
+              setError(OFFLINE_MSG);
+            } else {
+              setError(e.response?.data?.detail?.toString() || 'Could not delete category.');
+            }
           }
         },
       },
@@ -92,6 +119,11 @@ export default function CategoriesScreen() {
 
   return (
     <View style={styles.container}>
+      {offline && (
+        <Text style={styles.offlineBanner}>
+          You are offline. Showing your last saved data.
+        </Text>
+      )}
       <TextInput
         style={styles.input}
         placeholder="New category name"
@@ -149,6 +181,15 @@ export default function CategoriesScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16, backgroundColor: colors.background },
+  offlineBanner: {
+    backgroundColor: colors.dark,
+    color: colors.champagne,
+    textAlign: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
   input: {
     borderWidth: 1,
     borderColor: colors.dark,

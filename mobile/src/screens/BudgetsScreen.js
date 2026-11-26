@@ -20,7 +20,10 @@ import {
   deleteBudget,
 } from "../api/budgets";
 import { getCategories } from "../api/categories";
+import { saveOffline, loadOffline, isNetworkError } from "../storage/offline";
 import { colors } from "../theme";
+
+const OFFLINE_MSG = "You are offline. Connect to the internet to change budgets.";
 
 function errorText(err) {
   const detail = err?.response?.data?.detail;
@@ -54,6 +57,7 @@ export default function BudgetsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [month, setMonth] = useState(monthKey(new Date()));
+  const [offline, setOffline] = useState(false);
 
   const [modalVisible, setModalVisible] = useState(false);
   const [editing, setEditing] = useState(null); // progress item being edited, or null
@@ -74,9 +78,22 @@ export default function BudgetsScreen() {
       if (id !== requestId.current) return;
       setProgress(p);
       setCategories(c);
+      setOffline(false);
+      saveOffline(`budgets-${month}`, p);
+      saveOffline("categories", c);
     } catch (err) {
       if (id !== requestId.current) return;
-      Alert.alert("Could not load data", errorText(err));
+      if (isNetworkError(err)) {
+        // No connection: show the last saved copy for this month
+        const cached = await loadOffline(`budgets-${month}`);
+        const cachedCats = await loadOffline("categories");
+        if (id !== requestId.current) return;
+        setProgress(cached || []);
+        if (cachedCats) setCategories(cachedCats);
+        setOffline(true);
+      } else {
+        Alert.alert("Could not load data", errorText(err));
+      }
     } finally {
       if (id === requestId.current) {
         setLoading(false);
@@ -98,6 +115,10 @@ export default function BudgetsScreen() {
   );
 
   const openAdd = () => {
+    if (offline) {
+      Alert.alert("Offline", OFFLINE_MSG);
+      return;
+    }
     setEditing(null);
     setLimit("");
     setCategoryId(null);
@@ -105,6 +126,10 @@ export default function BudgetsScreen() {
   };
 
   const openEdit = (item) => {
+    if (offline) {
+      Alert.alert("Offline", OFFLINE_MSG);
+      return;
+    }
     setEditing(item);
     setLimit(String(item.limit_amount));
     setCategoryId(item.category_id);
@@ -135,13 +160,21 @@ export default function BudgetsScreen() {
       setModalVisible(false);
       await load();
     } catch (err) {
-      Alert.alert("Could not save", errorText(err));
+      if (isNetworkError(err)) {
+        Alert.alert("Offline", OFFLINE_MSG);
+      } else {
+        Alert.alert("Could not save", errorText(err));
+      }
     } finally {
       setSaving(false);
     }
   };
 
   const confirmDelete = (item) => {
+    if (offline) {
+      Alert.alert("Offline", OFFLINE_MSG);
+      return;
+    }
     Alert.alert("Delete budget?", "This cannot be undone.", [
       { text: "Cancel", style: "cancel" },
       {
@@ -154,7 +187,11 @@ export default function BudgetsScreen() {
               prev.filter((b) => b.budget_id !== item.budget_id)
             );
           } catch (err) {
-            Alert.alert("Could not delete", errorText(err));
+            if (isNetworkError(err)) {
+              Alert.alert("Offline", OFFLINE_MSG);
+            } else {
+              Alert.alert("Could not delete", errorText(err));
+            }
           }
         },
       },
@@ -228,6 +265,12 @@ export default function BudgetsScreen() {
         </TouchableOpacity>
       </View>
 
+      {offline && (
+        <Text style={styles.offlineBanner}>
+          You are offline. Showing your last saved data.
+        </Text>
+      )}
+
       <View style={styles.monthRow}>
         <TouchableOpacity onPress={() => setMonth(shiftMonth(month, -1))}>
           <Text style={styles.arrow}>‹</Text>
@@ -250,7 +293,9 @@ export default function BudgetsScreen() {
         contentContainerStyle={progress.length === 0 && styles.emptyWrap}
         ListEmptyComponent={
           <Text style={styles.hint}>
-            No budgets for this month. Tap "+ Add" to set one.
+            {offline
+              ? "You are offline and no saved budgets for this month."
+              : 'No budgets for this month. Tap "+ Add" to set one.'}
           </Text>
         }
       />
@@ -353,6 +398,16 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   addBtnText: { color: "#000000", fontWeight: "700" },
+  offlineBanner: {
+    backgroundColor: colors.dark,
+    color: colors.champagne,
+    textAlign: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    marginHorizontal: 16,
+    marginBottom: 8,
+  },
   monthRow: {
     flexDirection: "row",
     alignItems: "center",

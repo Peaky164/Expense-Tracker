@@ -13,6 +13,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
 import { getSummary } from "../api/dashboard";
+import { saveOffline, loadOffline, isNetworkError } from "../storage/offline";
 import { colors } from "../theme";
 
 function errorText(err) {
@@ -45,13 +46,26 @@ export default function DashboardScreen({ user, onLogout }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [month, setMonth] = useState(monthKey(new Date()));
+  const [offline, setOffline] = useState(false);
 
   const load = useCallback(async (m) => {
     try {
       const data = await getSummary(m);
       setSummary(data);
+      setOffline(false);
+      saveOffline(`dashboard-${m}`, data);
     } catch (err) {
-      Alert.alert("Could not load data", errorText(err));
+      if (isNetworkError(err)) {
+        // No connection: show the last saved copy for this month
+        const cached = await loadOffline(`dashboard-${m}`);
+        setSummary(cached || null);
+        setOffline(true);
+        if (!cached) {
+          Alert.alert("Offline", "No saved data for this month yet.");
+        }
+      } else {
+        Alert.alert("Could not load data", errorText(err));
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -99,6 +113,11 @@ export default function DashboardScreen({ user, onLogout }) {
           />
         }
       >
+        {offline && (
+          <Text style={styles.offlineBanner}>
+            You are offline. Showing your last saved data.
+          </Text>
+        )}
         <Text style={styles.welcome}>Welcome, {user?.name}</Text>
 
         <View style={styles.monthRow}>
@@ -251,6 +270,15 @@ const styles = StyleSheet.create({
     color: colors.champagne,
   },
   hint: { color: colors.textSecondary, marginTop: 8, textAlign: "center" },
+  offlineBanner: {
+    backgroundColor: colors.dark,
+    color: colors.champagne,
+    textAlign: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
   catRow: { marginBottom: 14 },
   catTop: { flexDirection: "row", justifyContent: "space-between" },
   catName: { fontSize: 14, fontWeight: "600", color: colors.text },
