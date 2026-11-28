@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
   View,
   Text,
@@ -25,9 +25,10 @@ import {
 } from "../api/transactions";
 import { getCategories } from "../api/categories";
 import { saveOffline, loadOffline, isNetworkError } from "../storage/offline";
-import { flushPending, addPending, getPending } from "../storage/pendingQueue";
+import { flushPending, getPending } from "../storage/pendingQueue";
 import { parseSms } from "../smsParser";
 import { parseCsv } from "../csvParser";
+import { iconFor } from "../categoryIcons";
 import { colors } from "../theme";
 
 const PAYMENT_MODES = ["Cash", "UPI", "Card", "Other"];
@@ -37,30 +38,6 @@ const FILTERS = [
   { key: "income", label: "Income" },
   { key: "expense", label: "Expense" },
 ];
-
-// Icon guessed from the category name (the database has no icon field)
-const ICON_RULES = [
-  { words: ["food", "dining", "restaurant", "grocer", "lunch", "dinner", "snack"], icon: "restaurant", color: "#EF4444" },
-  { words: ["shop", "cloth", "mall"], icon: "cart", color: "#A855F7" },
-  { words: ["travel", "trip", "flight", "holiday"], icon: "airplane", color: "#22C55E" },
-  { words: ["transport", "fuel", "petrol", "taxi", "cab"], icon: "car", color: "#3B82F6" },
-  { words: ["rent", "home", "house"], icon: "home", color: "#EF4444" },
-  { words: ["entertain", "movie", "game"], icon: "film", color: "#EC4899" },
-  { words: ["health", "medic", "doctor"], icon: "medkit", color: "#14B8A6" },
-  { words: ["bill", "electric", "utilit", "recharge"], icon: "flash", color: "#F59E0B" },
-  { words: ["palour", "parlour", "salon", "beauty"], icon: "cut", color: "#F472B6" },
-  { words: ["salary", "income", "bonus"], icon: "cash", color: "#22C55E" },
-];
-
-function iconFor(cat) {
-  const n = (cat?.name || "").toLowerCase();
-  const rule = ICON_RULES.find((r) => r.words.some((w) => n.includes(w)));
-  const base = rule || (cat?.type === "income"
-    ? { icon: "cash", color: colors.income }
-    : { icon: "pricetag", color: colors.gold });
-  // Income categories always use green
-  return { icon: base.icon, color: cat?.type === "income" ? colors.income : base.color };
-}
 
 function errorText(err) {
   const detail = err?.response?.data?.detail;
@@ -83,7 +60,7 @@ function formatDate(value) {
   });
 }
 
-export default function TransactionsScreen({ route, navigation }) {
+export default function TransactionsScreen({ navigation }) {
   const [transactions, setTransactions] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -94,17 +71,18 @@ export default function TransactionsScreen({ route, navigation }) {
   const [pending, setPending] = useState([]);
   const [filter, setFilter] = useState("all");
 
+  // The edit form (adding a new transaction now uses the Add Transaction screen)
   const [modalVisible, setModalVisible] = useState(false);
-  const [editing, setEditing] = useState(null); // transaction being edited, or null
+  const [editing, setEditing] = useState(null);
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
   const [paymentMode, setPaymentMode] = useState("Cash");
   const [categoryId, setCategoryId] = useState(null);
   const [saving, setSaving] = useState(false);
+
   const [smsVisible, setSmsVisible] = useState(false);
   const [smsText, setSmsText] = useState("");
-  const [smsDate, setSmsDate] = useState(null);
-  const [smsType, setSmsType] = useState(null);
+
   const [csvVisible, setCsvVisible] = useState(false);
   const [csvRows, setCsvRows] = useState([]);
   const [csvSkipped, setCsvSkipped] = useState(0);
@@ -164,7 +142,7 @@ export default function TransactionsScreen({ route, navigation }) {
     }
   };
 
-  // Reload every time the tab is focused (so new categories show up)
+  // Reload every time the tab is focused (so new transactions show up)
   useFocusEffect(
     useCallback(() => {
       load();
@@ -179,42 +157,22 @@ export default function TransactionsScreen({ route, navigation }) {
       ? transactions
       : transactions.filter((t) => categoryById(t.category_id)?.type === filter);
 
+  // "+ Add" opens the Add Transaction screen
   const openAdd = () => {
-    setEditing(null);
-    setSmsDate(null);
-    setSmsType(null);
-    setAmount("");
-    setDescription("");
-    setPaymentMode("Cash");
-    setCategoryId(null);
-    setModalVisible(true);
+    navigation.navigate("AddTransaction", {
+      from: "Transactions",
+      type: filter === "income" ? "income" : "expense",
+    });
   };
 
   const openEdit = (item) => {
     setEditing(item);
-    setSmsDate(null);
-    setSmsType(null);
     setAmount(String(item.amount));
     setDescription(item.description || "");
     setPaymentMode(item.payment_mode || "Cash");
     setCategoryId(item.category_id);
     setModalVisible(true);
   };
-
-  // Opened from the Dashboard's Add Income / Add Expense buttons
-  useEffect(() => {
-    const q = route?.params?.quickAdd;
-    if (!q) return;
-    navigation.setParams({ quickAdd: undefined });
-    setEditing(null);
-    setSmsDate(null);
-    setSmsType(q);
-    setAmount("");
-    setDescription("");
-    setPaymentMode("Cash");
-    setCategoryId(null);
-    setModalVisible(true);
-  }, [route?.params?.quickAdd]);
 
   const handleSave = async () => {
     const value = Number(amount);
@@ -228,36 +186,17 @@ export default function TransactionsScreen({ route, navigation }) {
     }
     setSaving(true);
     try {
-      const payload = {
+      await updateTransaction(editing.id, {
         amount: value,
         description: description.trim() || null,
         payment_mode: paymentMode,
         category_id: categoryId,
-      };
-      if (!editing && smsDate) payload.date = smsDate;
-      if (editing) {
-        await updateTransaction(editing.id, payload);
-      } else {
-        await createTransaction(payload);
-      }
+      });
       setModalVisible(false);
       await load();
     } catch (err) {
-      if (!editing && isNetworkError(err)) {
-        // No connection: keep it on the phone and upload later
-        await addPending({
-          date: smsDate || undefined,
-          amount: value,
-          description: description.trim() || null,
-          payment_mode: paymentMode,
-          category_id: categoryId,
-        });
-        setPending(await getPending());
-        setModalVisible(false);
-        Alert.alert(
-          "Saved offline",
-          "It will upload automatically when you are back online."
-        );
+      if (isNetworkError(err)) {
+        Alert.alert("Offline", "You are offline. Connect to the internet to edit.");
       } else {
         Alert.alert("Could not save", errorText(err));
       }
@@ -271,6 +210,7 @@ export default function TransactionsScreen({ route, navigation }) {
     setSmsVisible(true);
   };
 
+  // Reads the SMS and opens the Add Transaction screen pre-filled
   const handleUseSms = () => {
     const parsed = parseSms(smsText);
     setSmsVisible(false);
@@ -279,14 +219,14 @@ export default function TransactionsScreen({ route, navigation }) {
       openAdd();
       return;
     }
-    setEditing(null);
-    setSmsDate(parsed.date);
-    setSmsType(parsed.type);
-    setAmount(String(parsed.amount));
-    setDescription(parsed.description);
-    setPaymentMode(parsed.paymentMode || "Cash");
-    setCategoryId(null);
-    setModalVisible(true);
+    navigation.navigate("AddTransaction", {
+      from: "Transactions",
+      type: parsed.type,
+      amount: parsed.amount,
+      description: parsed.description,
+      paymentMode: parsed.paymentMode || "Cash",
+      date: parsed.date,
+    });
   };
 
   const pickCsv = async () => {
@@ -446,7 +386,7 @@ export default function TransactionsScreen({ route, navigation }) {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
-        <View />
+        <Text style={styles.screenTitle}>Transactions</Text>
         <TouchableOpacity style={styles.addBtn} onPress={openAdd}>
           <Text style={styles.addBtnText}>+ Add</Text>
         </TouchableOpacity>
@@ -534,7 +474,7 @@ export default function TransactionsScreen({ route, navigation }) {
                 <Text style={styles.label}>Category for all expenses</Text>
                 {expenseCats.length === 0 ? (
                   <Text style={styles.hint}>
-                    No expense category yet. Create one in the Categories tab first.
+                    No expense category yet. Create one from Profile, then Categories.
                   </Text>
                 ) : (
                   <View style={styles.chipWrap}>
@@ -564,7 +504,7 @@ export default function TransactionsScreen({ route, navigation }) {
                 <Text style={styles.label}>Category for all income</Text>
                 {incomeCats.length === 0 ? (
                   <Text style={styles.hint}>
-                    No income category yet. Create one in the Categories tab first.
+                    No income category yet. Create one from Profile, then Categories.
                   </Text>
                 ) : (
                   <View style={styles.chipWrap}>
@@ -709,19 +649,8 @@ export default function TransactionsScreen({ route, navigation }) {
               contentContainerStyle={styles.form}
               keyboardShouldPersistTaps="handled"
             >
-              <Text style={styles.title}>
-                {editing
-                  ? "Edit transaction"
-                  : smsType === "income"
-                  ? "New income"
-                  : smsType === "expense"
-                  ? "New expense"
-                  : "New transaction"}
-              </Text>
+              <Text style={styles.title}>Edit transaction</Text>
 
-              {smsDate ? (
-                <Text style={styles.hint}>Date from SMS: {formatDate(smsDate)}</Text>
-              ) : null}
               <Text style={styles.label}>Amount (₹)</Text>
               <TextInput
                 style={styles.input}
@@ -762,36 +691,27 @@ export default function TransactionsScreen({ route, navigation }) {
               </View>
 
               <Text style={styles.label}>Category</Text>
-              {categories.length === 0 ? (
-                <Text style={styles.hint}>
-                  No categories yet. Create one in the Categories tab first.
-                </Text>
-              ) : (
-                <View style={styles.chipWrap}>
-                  {(smsType && categories.some((c) => c.type === smsType)
-                    ? categories.filter((c) => c.type === smsType)
-                    : categories
-                  ).map((c) => (
-                    <TouchableOpacity
-                      key={c.id}
+              <View style={styles.chipWrap}>
+                {categories.map((c) => (
+                  <TouchableOpacity
+                    key={c.id}
+                    style={[
+                      styles.chip,
+                      categoryId === c.id && styles.chipActive,
+                    ]}
+                    onPress={() => setCategoryId(c.id)}
+                  >
+                    <Text
                       style={[
-                        styles.chip,
-                        categoryId === c.id && styles.chipActive,
+                        styles.chipText,
+                        categoryId === c.id && styles.chipTextActive,
                       ]}
-                      onPress={() => setCategoryId(c.id)}
                     >
-                      <Text
-                        style={[
-                          styles.chipText,
-                          categoryId === c.id && styles.chipTextActive,
-                        ]}
-                      >
-                        {c.name} ({c.type})
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              )}
+                      {c.name} ({c.type})
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
 
               <TouchableOpacity
                 style={[styles.saveBtn, saving && { opacity: 0.6 }]}
@@ -833,6 +753,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   title: { fontSize: 22, fontWeight: "700", color: colors.gold },
+  screenTitle: { fontSize: 24, fontWeight: "700", color: colors.text },
   addBtn: {
     backgroundColor: colors.gold,
     paddingHorizontal: 16,

@@ -91,13 +91,15 @@ export default function DashboardScreen({ user, navigation }) {
       label: "Add Income",
       icon: "add-circle",
       color: colors.income,
-      onPress: () => navigation.navigate("Transactions", { quickAdd: "income" }),
+      onPress: () =>
+        navigation.navigate("AddTransaction", { from: "Dashboard", type: "income" }),
     },
     {
       label: "Add Expense",
       icon: "remove-circle",
       color: colors.expense,
-      onPress: () => navigation.navigate("Transactions", { quickAdd: "expense" }),
+      onPress: () =>
+        navigation.navigate("AddTransaction", { from: "Dashboard", type: "expense" }),
     },
     {
       label: "Set Budget",

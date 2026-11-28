@@ -1,5 +1,6 @@
 import React from "react";
 import { View, Text, TouchableOpacity, ScrollView, Alert, StyleSheet } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@react-native-vector-icons/ionicons";
 import { colors } from "../theme";
 
@@ -18,32 +19,39 @@ export default function ProfileScreen({ user, onLogout, navigation }) {
   ];
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <View style={styles.avatar}>
-        <Text style={styles.avatarText}>{initial}</Text>
+    <SafeAreaView style={styles.container} edges={["top"]}>
+      <View style={styles.header}>
+        <Text style={styles.title}>Profile</Text>
       </View>
-      <Text style={styles.name}>{user?.name}</Text>
-      <Text style={styles.email}>{user?.email}</Text>
+      <ScrollView contentContainerStyle={styles.content}>
+        <View style={styles.avatar}>
+          <Text style={styles.avatarText}>{initial}</Text>
+        </View>
+        <Text style={styles.name}>{user?.name}</Text>
+        <Text style={styles.email}>{user?.email}</Text>
 
-      <View style={styles.menu}>
-        {rows.map((r) => (
-          <TouchableOpacity key={r.label} style={styles.menuRow} onPress={r.onPress}>
-            <Ionicons name={r.icon} size={22} color={colors.gold} />
-            <Text style={styles.menuLabel}>{r.label}</Text>
-            <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
-          </TouchableOpacity>
-        ))}
-      </View>
+        <View style={styles.menu}>
+          {rows.map((r) => (
+            <TouchableOpacity key={r.label} style={styles.menuRow} onPress={r.onPress}>
+              <Ionicons name={r.icon} size={22} color={colors.gold} />
+              <Text style={styles.menuLabel}>{r.label}</Text>
+              <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+            </TouchableOpacity>
+          ))}
+        </View>
 
-      <TouchableOpacity style={styles.logoutBtn} onPress={onLogout}>
-        <Text style={styles.logoutText}>Log out</Text>
-      </TouchableOpacity>
-    </ScrollView>
+        <TouchableOpacity style={styles.logoutBtn} onPress={onLogout}>
+          <Text style={styles.logoutText}>Log out</Text>
+        </TouchableOpacity>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
+  header: { paddingHorizontal: 16, paddingVertical: 14, alignItems: "center" },
+  title: { fontSize: 22, fontWeight: "700", color: colors.text },
   content: { alignItems: "center", padding: 20, paddingBottom: 40 },
   avatar: {
     width: 96,
@@ -54,7 +62,7 @@ const styles = StyleSheet.create({
     borderColor: colors.gold,
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 12,
+    marginTop: 4,
     shadowColor: colors.gold,
     shadowOpacity: 0.5,
     shadowRadius: 14,
